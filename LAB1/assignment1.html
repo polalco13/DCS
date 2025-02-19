@@ -51,7 +51,44 @@
         <input type="number" id="Y2" placeholder="Scaling along Y"><br><br>
 
         <button type="button" onclick="doFreeScaling()">Scale</button><br><br>
+
+    <!--Reflection -->
+    <h3>Reflection x-axis</h3>
+        <button type="button" onclick="reflection()">Reflection</button><br><br>
 </details>
+
+<details>
+    <summary><strong>Problem 2</strong></summary>
+    <!-- Translation and Rotation Section -->
+    <section>
+        
+        <br>
+        <label for="tx">Translation along X-axis (t_x):</label>
+        <input type="number" id="tx_2" placeholder="Translation along X"><br><br>
+
+        <label for="ty">Translation along Y-axis (t_y):</label>
+        <input type="number" id="ty_2" placeholder="Translation along Y"><br><br>
+
+        <label for="degrees">Rotate around the origin:</label>
+        <input type="number" id="degrees_2" placeholder="Degrees"><br><br>
+
+        <h3>Translation and Rotation</h3>
+        <button type="button" onclick="doTranslationRotation()">Translate and Rotate</button><br><br>
+        <h3>Rotation and Translation</h3>
+        <button type="button" onclick="doRotationTranslation()">Rotate and Translate</button><br><br>
+
+        <h3>Reflection</h3>
+        <!--we use y = mx + b -->
+        <label for="formula">y = mx + b</label><br>
+
+        <label for="m">Line slope (m):</label>
+        <input type="number" id="slope" placeholder="Slope" step="0.1"><br><br>
+
+        <label for="b">Y-intercept (b):</label>
+        <input type="number" id="intercept" placeholder="Y-intercept"><br><br>
+
+        <button type="button" onclick="reflectionLine()">Reflection custom line</button><br><br>
+    </details>
 
 <script type="text/javascript">
 
@@ -120,6 +157,9 @@
 
         // Transformed points
         drawCurve(context2, style, points, myTransformation); // Draw curve transformed
+    
+        // Dibujar la línea de reflexión
+        drawReflectionLine(context2);
     }
 
 
@@ -304,6 +344,57 @@
         return transformedPoint;
     }
 
+    var reflectionFunction = function(point) {
+        // para reflejar en el eje x, simplemente cambiamos el signo de la coordenada y
+        return {x: point.x, y: -point.y}
+    }
+
+    //PROBLEMA 2
+    //function for translation and rotation
+    var translationRotationFunction = function(point) {
+        //translate
+        const tx = parseInt(document.getElementById('tx_2').value);
+        const ty = parseInt(document.getElementById('ty_2').value);
+        var translatedPoints = { x: point.x + tx, y: point.y - ty };
+        //rotate
+        const angle = parseInt(document.getElementById('degrees_2').value);
+        var radians = angle * Math.PI/180;
+        var rotatedPoints = {x: translatedPoints.x * Math.cos(radians) - translatedPoints.y * Math.sin(radians),
+                             y: translatedPoints.x * Math.sin(radians) + translatedPoints.y * Math.cos(radians)}
+        return rotatedPoints;
+    };
+
+    //function for rotatation and translation
+    var rotationTranslationFunction = function(point) {
+        //rotate
+        const angle = parseInt(document.getElementById('degrees_2').value);
+        var radians = angle * Math.PI/180;
+        var rotatedPoints = {x: point.x * Math.cos(radians) - point.y * Math.sin(radians),
+                             y: point.x * Math.sin(radians) + point.y * Math.cos(radians)}
+        //translate
+        const tx = parseInt(document.getElementById('tx_2').value);
+        const ty = parseInt(document.getElementById('ty_2').value);
+        var translatedPoints = { x: rotatedPoints.x + tx, y: rotatedPoints.y - ty };
+        return translatedPoints;
+    }
+
+    //function for reflection on a custom line
+    var reflectionLineFunction = function(point) {
+        const m = parseFloat(document.getElementById('slope').value);
+        const b = parseFloat(document.getElementById('intercept').value);
+        
+        // Formula for reflection across arbitrary line y = mx + b
+        // Source: https://math.stackexchange.com/questions/1013230
+        const numerator = (1 - m*m)*point.x + 2*m*(point.y - b);
+        const denominator = 1 + m*m;
+        
+        const xNew = numerator/denominator;
+        const yNew = m*xNew + 2*b - point.y;
+        
+        return {x: xNew, y: yNew};
+}
+
+
     function doReset () {
         myTransformation = function(p){return p}; //Identity transform
         drawCanvas();
@@ -315,6 +406,7 @@
         drawCanvas();
     }
 
+    // PROBLEM 1
     function doTranslation() {
         myTransformation = translationFunction;
         drawCanvas();
@@ -328,6 +420,46 @@
         myTransformation = freeScalingFunction;
         drawCanvas();
     }
+    function reflection() {
+        myTransformation = reflectionFunction; //Reflection on x-axis
+        drawCanvas();
+    }
+
+
+    // PROBLEM 2
+    function doTranslationRotation() {
+        myTransformation = translationRotationFunction;
+        drawCanvas();
+    }
+    function doRotationTranslation() {
+        myTransformation = rotationTranslationFunction;
+        drawCanvas();
+    }
+    function reflectionLine() {
+    myTransformation = reflectionLineFunction;
+    drawCanvas();
+}
+
+// function done with copilot so we can reflect on a custom line
+function drawReflectionLine(ctx) {
+    const m = parseFloat(document.getElementById('slope').value) || 0;
+    const b = parseFloat(document.getElementById('intercept').value) || 0;
+    
+    const width = ctx.canvas.width;
+    const startX = -width/2;
+    const endX = width/2;
+    
+    const startY = m * startX + b;
+    const endY = m * endX + b;
+    
+    ctx.beginPath();
+    ctx.strokeStyle = '#FF0000';
+    ctx.lineWidth = 2;
+    ctx.moveTo(startX, -startY);
+    ctx.lineTo(endX, -endY);
+    ctx.stroke();
+}
+
 
 
 </script>
