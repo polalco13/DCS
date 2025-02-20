@@ -88,8 +88,26 @@
         <input type="number" id="intercept" placeholder="Y-intercept"><br><br>
 
         <button type="button" onclick="reflectionLine()">Reflection custom line</button><br><br>
-    </details>
+</details>
 
+<details>
+    <summary><strong>Problem 3</strong></summary>
+    <section>
+        <br>
+        <h3>Parallel Projection</h3>
+        <label>Vector direction</label><br>
+        <label for="tx">(dx):</label>
+        <input type="number" id="dx" placeholder="Translation along X"><br><br>
+
+        <label for="ty"> (dy):</label>
+        <input type="number" id="dy" placeholder="Translation along Y"><br><br>
+
+        <button type="button" onclick="doParallelProjection()">Parallel projection</button><br><br>
+    </section> 
+    <section>
+        <h3>Central Projection</h3>
+    </section>
+</details>
 <script type="text/javascript">
 
     /*
@@ -394,6 +412,25 @@
         return {x: xNew, y: yNew};
 }
 
+    //PROBLEM 3
+    // copilot helped me with this function
+    var parallelProjectionFunction = function(point) {
+        const dx = parseInt(document.getElementById('dx').value);
+        const dy = parseInt(document.getElementById('dy').value);
+        
+        // Calculate direction vector length
+        const length = Math.sqrt(dx*dx + dy*dy);
+
+        // vector normalizado es un vector que mantiene su dirección pero tiene longitud 1
+        const nx = dx/length;
+        const ny = dy/length;
+        //cuanto se ha desplazado el punto a lo largo de la direccion dada
+        const dot = point.x * nx + point.y * ny;
+        
+        // Calculate projected point coordinates
+        return {x: dot * nx,y: dot * ny};
+    }
+
 
     function doReset () {
         myTransformation = function(p){return p}; //Identity transform
@@ -439,6 +476,11 @@
     myTransformation = reflectionLineFunction;
     drawCanvas();
 }
+    //PROBLEM 3
+    function doParallelProjection() {
+        myTransformation = parallelProjectionFunction;
+        drawCanvas();
+    }
 
 // function done with copilot so we can reflect on a custom line
 function drawReflectionLine(ctx) {
