@@ -35,15 +35,15 @@
         <button type="button" onclick="doRotation()">Rotate</button><br><br>
     </section>
 
-    <!--Scaling -->
+    <!-- Scaling -->
     <h3>Scaling</h3>
-        <label for="tx">Y1:</label>
+        <label for="Y1">Y1:</label>
         <input type="number" id="Y1" placeholder="Scaling along X"><br><br>
-        <label for="ty">Y2:</label>
+        <label for="Y2">Y2:</label>
         <input type="number" id="Y2" placeholder="Scaling along Y"><br><br>
         <button type="button" onclick="doFreeScaling()">Scale</button><br><br>
 
-    <!--Reflection -->
+    <!-- Reflection -->
     <h3>Reflection x-axis</h3>
         <button type="button" onclick="reflection()">Reflection</button><br><br>
 </details>
@@ -71,6 +71,7 @@
         <label for="b">Y-intercept (b):</label>
         <input type="number" id="intercept" placeholder="Y-intercept"><br><br>
         <button type="button" onclick="reflectionLine()">Reflection custom line</button><br><br>
+    </section>
 </details>
 
 <details>
@@ -78,13 +79,13 @@
     <section>
         <br>
         <h3>Parallel Projection</h3>
-        <label>Vector dirección</label><br>
+        <label>Direction vector</label><br>
         <label for="dx">(dx):</label>
         <input type="number" id="dx" placeholder="dx"><br><br>
         <label for="dy">(dy):</label>
         <input type="number" id="dy" placeholder="dy"><br><br>
         <button type="button" onclick="doParallelProjection()">Parallel projection</button><br><br>
-    </section> 
+    </section>
     <section>
         <h3>Central Projection</h3>
         <label for="focal">Focal Length (f):</label>
@@ -93,12 +94,41 @@
     </section>
 </details>
 
+<details>
+    <summary><strong>Problem 4</strong></summary>
+    <p>
+        <strong>Question:</strong> Which of the two projections (Parallel and Central) preserve affine combinations?<br>
+        <strong>Answer (justified):</strong><br>
+        A <em>parallel projection</em> (as implemented here) is effectively a linear (and thus affine) map, so
+        it preserves affine combinations such as midpoints.<br>
+        A <em>central (perspective) projection</em> is <strong>not</strong> an affine map; it depends on dividing by 
+        \( (y+f) \) to “project” onto the line \( y=0 \). This makes it a projective transformation—so it does 
+        <strong>not</strong> preserve affine combinations in general.
+    </p>
+    <p>
+        Click below to check numerically with the currently selected transformation (whichever you set above). We'll use
+        the first two points in your shape to illustrate whether the midpoint is preserved.
+    </p>
+    <button type="button" onclick="doCheckAffinePreservation()">Check Affine Preservation</button>
+    <div id="affineResults" style="margin-top:10px; font-family:monospace; color:blue;"></div>
+</details>
+
 <script type="text/javascript">
     var canvas1, canvas2, context1, context2, points, myTransformation, style, drag = null, draggedPoint;
 
     // Define un objeto poligonal
-    points = [{ x:-150, y:-200 },{ x:-150, y:-150 },{ x:-50, y:-150 }, { x:-50, y:200 }, { x:0, y:200 },
-              { x:0, y:-150 },{ x:100, y:-150 },{ x:100, y:-250 },{ x:-100, y:-250 },{ x:-150, y:-200 }];
+    points = [
+        { x:-150, y:-200 },
+        { x:-150, y:-150 },
+        { x:-50,  y:-150 },
+        { x:-50,  y:200 },
+        { x:0,    y:200 },
+        { x:0,    y:-150 },
+        { x:100,  y:-150 },
+        { x:100,  y:-250 },
+        { x:-100, y:-250 },
+        { x:-150, y:-200 }  // Closing point to make it "closed"
+    ];
 
     function init() {
         myTransformation = function(p){return p}; // Transformación identidad
@@ -307,7 +337,9 @@
         ctx.setLineDash([]);
     }
 
-    // Funciones de interacción para el arrastre de vértices
+    // ----------------------------
+    //  Interaction: dragging vertices
+    // ----------------------------
     function dragStart(e) {
         e = mousePos(e);
         var pos = fromCanvasToPointSpace(e);
@@ -348,7 +380,9 @@
         return { x: canvasPoint.x - canvas1.width/2, y: canvasPoint.y - canvas1.height/2 };
     }
 
-    // Funciones de transformación
+    // ----------------------------
+    //  Transformation functions
+    // ----------------------------
     var scalingFunction = function(point) {
         var matrix = math.matrix([[0.5, 0], [0, 0.5]]);
         var pointAsArray = [point.x, point.y];
@@ -356,12 +390,12 @@
         return { x: result.get([0]), y: result.get([1]) };
     };
     var translationFunction = function(point) {
-        const tx = parseInt(document.getElementById('tx').value);
-        const ty = parseInt(document.getElementById('ty').value);
+        const tx = parseInt(document.getElementById('tx').value) || 0;
+        const ty = parseInt(document.getElementById('ty').value) || 0;
         return { x: point.x + tx, y: point.y - ty };
     };
     var rotateFunction = function(point) {
-        const angle = parseInt(document.getElementById('degrees').value);
+        const angle = parseInt(document.getElementById('degrees').value) || 0;
         var radians = angle * Math.PI/180;
         return {
             x: point.x * Math.cos(radians) - point.y * Math.sin(radians),
@@ -369,21 +403,22 @@
         };
     };
     var freeScalingFunction = function(point) {
-        const Y1 = parseFloat(document.getElementById('Y1').value);
-        const Y2 = parseFloat(document.getElementById('Y2').value);
+        const Y1 = parseFloat(document.getElementById('Y1').value) || 1;
+        const Y2 = parseFloat(document.getElementById('Y2').value) || 1;
         var matrix = math.matrix([[Y1, 0], [0, Y2]]);
         var pointAsArray = [point.x, point.y];
         var result = math.multiply(matrix, pointAsArray);
         return { x: result.get([0]), y: result.get([1]) };
     };
     var reflectionFunction = function(point) {
+        // Reflect across X-axis => (x, -y)
         return { x: point.x, y: -point.y };
     };
     var translationRotationFunction = function(point) {
-        const tx = parseInt(document.getElementById('tx_2').value);
-        const ty = parseInt(document.getElementById('ty_2').value);
+        const tx = parseInt(document.getElementById('tx_2').value) || 0;
+        const ty = parseInt(document.getElementById('ty_2').value) || 0;
         var translated = { x: point.x + tx, y: point.y - ty };
-        const angle = parseInt(document.getElementById('degrees_2').value);
+        const angle = parseInt(document.getElementById('degrees_2').value) || 0;
         var radians = angle * Math.PI/180;
         return {
             x: translated.x * Math.cos(radians) - translated.y * Math.sin(radians),
@@ -391,28 +426,27 @@
         };
     };
     var rotationTranslationFunction = function(point) {
-        const angle = parseInt(document.getElementById('degrees_2').value);
+        const angle = parseInt(document.getElementById('degrees_2').value) || 0;
         var radians = angle * Math.PI/180;
         var rotated = {
             x: point.x * Math.cos(radians) - point.y * Math.sin(radians),
             y: point.x * Math.sin(radians) + point.y * Math.cos(radians)
         };
-        const tx = parseInt(document.getElementById('tx_2').value);
-        const ty = parseInt(document.getElementById('ty_2').value);
+        const tx = parseInt(document.getElementById('tx_2').value) || 0;
+        const ty = parseInt(document.getElementById('ty_2').value) || 0;
         return { x: rotated.x + tx, y: rotated.y - ty };
     };
     var reflectionLineFunction = function(point) {
-        const m = parseFloat(document.getElementById('slope').value);
-        const b = parseFloat(document.getElementById('intercept').value);
+        const m = parseFloat(document.getElementById('slope').value) || 0;
+        const b = parseFloat(document.getElementById('intercept').value) || 0;
         const numerator = (1 - m*m)*point.x + 2*m*(point.y - b);
         const denominator = 1 + m*m;
         const xNew = numerator / denominator;
         const yNew = m * xNew + 2*b - point.y;
         return { x: xNew, y: yNew };
     };
-
-    // Función de proyección paralela (Problem 3)
     var parallelProjectionFunction = function(point) {
+        // Parallel projection along vector (dx,dy), projecting onto the line spanned by that vector.
         const dx = parseInt(document.getElementById('dx').value) || 1;
         const dy = parseInt(document.getElementById('dy').value) || 0;
         const length = Math.sqrt(dx * dx + dy * dy);
@@ -421,14 +455,19 @@
         const dot = point.x * nx + point.y * ny;
         return { x: nx * dot, y: ny * dot };
     };
-
-    // Función de proyección central (usando C=(0,-f) y pantalla en y=0)
     var centralProjectionFunction = function(point) {
+        // Center of projection: C = (0, -f), project onto y=0
         const f = parseFloat(document.getElementById('focal').value) || 300;
-        const t = (point.y + f !== 0) ? f / (point.y + f) : 1;
+        // t = f / (p.y + f) so that the new point has y=0
+        const denom = point.y + f;
+        // avoid dividing by 0
+        let t = (Math.abs(denom) < 1e-12) ? 1 : f / denom;
         return { x: t * point.x, y: 0 };
     };
 
+    // ----------------------------
+    //  Control buttons
+    // ----------------------------
     function doReset() {
         myTransformation = function(p){return p};
         drawCanvas();
@@ -473,9 +512,13 @@
         myTransformation = centralProjectionFunction;
         drawCanvas();
     }
+
+    // Draw reflection line if user has set slope/intercept (Problem 2)
     function drawReflectionLine(ctx) {
-        const m = parseFloat(document.getElementById('slope').value) || 0;
-        const b = parseFloat(document.getElementById('intercept').value) || 0;
+        const m = parseFloat(document.getElementById('slope').value);
+        const b = parseFloat(document.getElementById('intercept').value);
+        // If slope/intercept are NaN or not set, don't draw
+        if (isNaN(m) || isNaN(b)) return;
         const width = ctx.canvas.width;
         const startX = -width/2;
         const endX = width/2;
@@ -489,6 +532,56 @@
         ctx.stroke();
     }
 
+    // ----------------------------
+    //  Problem 4 demonstration
+    // ----------------------------
+    function doCheckAffinePreservation() {
+        // We'll test midpoint preservation on the first two points in 'points'.
+        if (points.length < 2) {
+            document.getElementById("affineResults").innerHTML = "Need at least two points!";
+            return;
+        }
+        let A = points[0];
+        let B = points[1];
+        // Midpoint in original space
+        let M = { x: (A.x + B.x)/2, y: (A.y + B.y)/2 };
+
+        // Transform them
+        let T_A = myTransformation(A);
+        let T_B = myTransformation(B);
+        let T_M = myTransformation(M);
+
+        // Midpoint of T(A) and T(B)
+        let midpointX = (T_A.x + T_B.x)/2;
+        let midpointY = (T_A.y + T_B.y)/2;
+
+        // Display numerically
+        let msg = "";
+        msg += "Using current transformation:<br>";
+        msg += "A = ("+A.x+", "+A.y+"), B = ("+B.x+", "+B.y+") <br>";
+        msg += "M (midpoint) = ("+M.x.toFixed(2)+", "+M.y.toFixed(2)+") <br><br>";
+        msg += "T(A) = ("+T_A.x.toFixed(2)+", "+T_A.y.toFixed(2)+") <br>";
+        msg += "T(B) = ("+T_B.x.toFixed(2)+", "+T_B.y.toFixed(2)+") <br>";
+        msg += "T(M) = ("+T_M.x.toFixed(2)+", "+T_M.y.toFixed(2)+") <br><br>";
+        msg += "Midpoint of [T(A), T(B)] = ("+midpointX.toFixed(2)+", "+midpointY.toFixed(2)+")<br><br>";
+
+        // Check if T(M) equals midpoint of T(A), T(B)
+        let dx = Math.abs(T_M.x - midpointX);
+        let dy = Math.abs(T_M.y - midpointY);
+        if (dx < 1e-5 && dy < 1e-5) {
+            msg += "<strong>Result:</strong> T(M) matches the midpoint of T(A) and T(B).<br>";
+            msg += "=> This transformation preserves these affine combinations (midpoints).";
+        } else {
+            msg += "<strong>Result:</strong> T(M) does <em>not</em> match the midpoint of T(A) and T(B).<br>";
+            msg += "=> This transformation <em>does not</em> preserve affine combinations in general.";
+        }
+
+        document.getElementById("affineResults").innerHTML = msg;
+    }
+
+    // ----------------------------
+    // Initialize
+    // ----------------------------
     canvas1 = document.getElementById("canvas1");
     context1 = canvas1.getContext("2d");
     canvas2 = document.getElementById("canvas2");
