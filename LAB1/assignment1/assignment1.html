@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>DCS - 1</title>
+    <!--- Math.js library, for matrix manipulation, and many other things--->
+    <script src="math.min.js"></script>
+</head>
+<body>
+<h1>DCS - 1. Affine transformations</h1>
+
+<canvas id="canvas1" height="600" width="400" class="bezier" style="border:1px solid #d3d3d3;"></canvas>
+<canvas id="canvas2" height="600" width="800" class="bezier" style="border:1px solid #d3d3d3;"></canvas>
+<br>
+<button type="button" onclick="doReset()">Reset</button>
+<button type="button" onclick="doScaling()">(Example) Scale by 0.5</button>
+
+<details>
+    <summary><strong>Problem 1</strong></summary>
+    <!-- Translation Section -->
+    <section>
+        <h3>Translation</h3>
+        <label for="tx">Translation along X-axis (t_x):</label>
+        <input type="number" id="tx" placeholder="Translation along X"><br><br>
+        <label for="ty">Translation along Y-axis (t_y):</label>
+        <input type="number" id="ty" placeholder="Translation along Y"><br><br>
+        <button type="button" onclick="doTranslation()">Translate</button><br><br>
+    </section>
+
+    <!-- Rotation Section -->
+    <section>
+        <h3>Rotation</h3>
+        <label for="degrees">Rotate around the origin:</label>
+        <input type="number" id="degrees" placeholder="Degrees"><br><br>
+        <button type="button" onclick="doRotation()">Rotate</button><br><br>
+    </section>
+
+    <!-- Scaling -->
+    <h3>Scaling</h3>
+        <label for="Y1">Y1:</label>
+        <input type="number" id="Y1" placeholder="Scaling along X"><br><br>
+        <label for="Y2">Y2:</label>
+        <input type="number" id="Y2" placeholder="Scaling along Y"><br><br>
+        <button type="button" onclick="doFreeScaling()">Scale</button><br><br>
+
+    <!-- Reflection -->
+    <h3>Reflection x-axis</h3>
+        <button type="button" onclick="reflection()">Reflection</button><br><br>
+</details>
+
+<details>
+    <summary><strong>Problem 2</strong></summary>
+    <!-- Translation and Rotation Section -->
+    <section>
+        <br>
+        <label for="tx">Translation along X-axis (t_x):</label>
+        <input type="number" id="tx_2" placeholder="Translation along X"><br><br>
+        <label for="ty">Translation along Y-axis (t_y):</label>
+        <input type="number" id="ty_2" placeholder="Translation along Y"><br><br>
+        <label for="degrees">Rotate around the origin:</label>
+        <input type="number" id="degrees_2" placeholder="Degrees"><br><br>
+        <h3>Translation and Rotation</h3>
+        <button type="button" onclick="doTranslationRotation()">Translate and Rotate</button><br><br>
+        <h3>Rotation and Translation</h3>
+        <button type="button" onclick="doRotationTranslation()">Rotate and Translate</button><br><br>
+        <h3>Reflection</h3>
+        <!--we use y = mx + b -->
+        <label for="formula">y = mx + b</label><br>
+        <label for="m">Line slope (m):</label>
+        <input type="number" id="slope" placeholder="Slope" step="0.1"><br><br>
+        <label for="b">Y-intercept (b):</label>
+        <input type="number" id="intercept" placeholder="Y-intercept"><br><br>
+        <button type="button" onclick="reflectionLine()">Reflection custom line</button><br><br>
+    </section>
+</details>
+
+<details>
+    <summary><strong>Problem 3</strong></summary>
+    <section>
+        <br>
+        <h3>Parallel Projection</h3>
+        <label>Direction vector</label><br>
+        <label for="dx">(dx):</label>
+        <input type="number" id="dx" placeholder="dx"><br><br>
+        <label for="dy">(dy):</label>
+        <input type="number" id="dy" placeholder="dy"><br><br>
+        <button type="button" onclick="doParallelProjection()">Parallel projection</button><br><br>
+    </section>
+    <section>
+        <h3>Central Projection</h3>
+        <label for="focal">Focal Length (f):</label>
+        <input type="number" id="focal" placeholder="Focal length" value="300"><br><br>
+        <button type="button" onclick="doCentralProjection()">Central Projection</button><br><br>
+    </section>
+</details>
+
+<details>
+    <summary><strong>Problem 4</strong></summary>
+    <p>
+        <strong>Question:</strong> Which of the two projections (Parallel and Central) preserve affine combinations?<br>
+        <strong>Answer:</strong><br>
+        <p><em>Parallel projection</em> preserves affine combinations, including midpoints. This is because 
+        parallel projection is a linear transformation that maps points along constant direction vectors 
+        onto a line, maintaining the proportional relationships between points.</p>
+        
+        <p><em>Central (perspective) projection</em> does <strong>not</strong> preserve affine combinations. 
+        Since it involves division by (y+f) to project points onto the line y=0, it's a non-linear, 
+        projective transformation. The ratio of distances between projected points varies based on their 
+        original distances from the projection center.</p>
+    </p>
+    <p>
+        Click below to check numerically with the currently selected transformation (whichever you set above). We'll use
+        the first two points in your shape to illustrate whether the midpoint is preserved.
+    </p>
+    <button type="button" onclick="doCheckAffinePreservation()">Check Affine Preservation</button>
+    <div id="affineResults" style="margin-top:10px; font-family:monospace; color:blue;"></div>
+</details>
+
+<script type="text/javascript">
+    var canvas1, canvas2, context1, context2, points, myTransformation, style, drag = null, draggedPoint;
+
+    // Define un objeto poligonal
+    points = [
+        { x:-150, y:-200 },
+        { x:-150, y:-150 },
+        { x:-50,  y:-150 },
+        { x:-50,  y:200 },
+        { x:0,    y:200 },
+        { x:0,    y:-150 },
+        { x:100,  y:-150 },
+        { x:100,  y:-250 },
+        { x:-100, y:-250 },
+        { x:-150, y:-200 }  // Closing point to make it "closed"
+    ];
+
+    function init() {
+        myTransformation = function(p){return p}; // Transformación identidad
+
+        // Estilos por defecto
+        style = {
+            curve:   { width: 6, color: "#333" },
+            line:    { width: 1, color: "#C00" },
+            point:   { radius: 10, width: 2, color: "#900", fill: "rgba(200,200,200,0.5)", arc1: 0, arc2: 2 * Math.PI }
+        };
+
+        context1.lineCap = "round";
+        context1.lineJoin = "round";
+        context2.lineCap = "round";
+        context2.lineJoin = "round";
+
+        // Trasladar el origen al centro del canvas
+        context1.translate(canvas1.width/2, canvas1.height/2);
+        context2.translate(canvas2.width/2, canvas2.height/2);
+
+        // Manejadores de eventos (sólo canvas1)
+        canvas1.onmousedown = dragStart;
+        canvas1.onmousemove = dragging;
+        canvas1.onmouseup = canvas1.onmouseout = dragEnd;
+
+        drawCanvas();
+    }
+
+    function drawCanvas() {
+        // Limpiar canvas
+        context1.clearRect(-canvas1.width/2, -canvas1.height/2, canvas1.width, canvas1.height);
+        context1.beginPath();
+        context2.clearRect(-canvas2.width/2, -canvas2.height/2, canvas2.width, canvas2.height);
+        context2.beginPath();
+
+        // Dibujar cuadrícula de fondo
+        drawGrid(context1, canvas1.width, canvas1.height);
+        drawGrid(context2, canvas2.width, canvas2.height);
+
+        // Dibujar el objeto original
+        drawCurve(context1, style, points);
+        drawVertices(context1, style, points);
+
+        // Dibujar el objeto transformado
+        drawCurve(context2, style, points, myTransformation);
+
+        // Dibujar la línea de reflexión (si se usa en Problem 2)
+        drawReflectionLine(context2);
+
+        // Si estamos usando la proyección paralela, dibujamos el vector dirección y las proyecciones
+        if (myTransformation === parallelProjectionFunction) {
+            drawDirectionAndProjection(context2);
+        }
+        // Si estamos usando la proyección central, dibujamos la visualización correspondiente
+        if (myTransformation === centralProjectionFunction) {
+            drawCentralProjectionVisual(context2);
+        }
+    }
+
+    // Dibuja una cuadrícula de fondo
+    function drawGrid(myContext, bw, bh) {
+        var delta = 50;
+        var half_width = bw/2;
+        var half_height = bh/2;
+        for (var x = -half_width; x <= half_width; x += delta) {
+            myContext.moveTo(x, -half_height);
+            myContext.lineTo(x, half_height);
+        }
+        for (var y = -half_height; y <= half_height; y += delta) {
+            myContext.moveTo(-half_width, y);
+            myContext.lineTo(half_width, y);
+        }
+        myContext.lineWidth = 1;
+        myContext.strokeStyle = "lightgray";
+        myContext.stroke();
+        myContext.fillStyle = "black";
+        myContext.font = "12px Arial";
+        myContext.fillText("(0,0)", 2, 12);
+    }
+
+    // Dibuja la curva (objeto poligonal) aplicando la transformación (si se especifica)
+    function drawCurve(ctx, style, points, transformation) {
+        if (transformation === undefined) {
+            transformation = function(p){return p}; // Identidad
+        }
+        ctx.lineWidth = style.curve.width;
+        ctx.strokeStyle = style.curve.color;
+        ctx.beginPath();
+        var firstPoint = transformation(points[0]);
+        ctx.moveTo(firstPoint.x, firstPoint.y);
+        for (var i = 0; i < points.length; i++) {
+            var currentPoint = transformation(points[i]);
+            ctx.lineTo(currentPoint.x, currentPoint.y);
+            ctx.moveTo(currentPoint.x, currentPoint.y);
+        }
+        ctx.stroke();
+    }
+
+    // Dibuja círculos en cada vértice para facilitar la interacción
+    function drawVertices(ctx, style, points) {
+        for (var i = 0; i < points.length; i++) {
+            var p = points[i];
+            ctx.lineWidth = style.point.width;
+            ctx.strokeStyle = style.point.color;
+            ctx.fillStyle = style.point.fill;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, style.point.radius, style.point.arc1, style.point.arc2, true);
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+    // Dibuja el vector dirección, la línea de proyección y las líneas desde cada vértice a su proyección (proyección paralela)
+    function drawDirectionAndProjection(ctx) {
+        // Leer dx y dy del DOM
+        const dx = parseInt(document.getElementById('dx').value) || 1;
+        const dy = parseInt(document.getElementById('dy').value) || 0;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        const nx = dx / length;
+        const ny = dy / length;
+
+        // Dibujar el vector dirección (flecha roja) desde el origen
+        const scale = 100; // Escala para visualizar
+        const endX = nx * scale;
+        const endY = ny * scale;
+        ctx.beginPath();
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // Dibujar la cabeza de la flecha
+        const arrowAngle = Math.PI / 6;
+        const arrowLength = 15;
+        let angle = Math.atan2(ny, nx);
+        let arrowX1 = endX - arrowLength * Math.cos(angle - arrowAngle);
+        let arrowY1 = endY - arrowLength * Math.sin(angle - arrowAngle);
+        let arrowX2 = endX - arrowLength * Math.cos(angle + arrowAngle);
+        let arrowY2 = endY - arrowLength * Math.sin(angle + arrowAngle);
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(arrowX1, arrowY1);
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(arrowX2, arrowY2);
+        ctx.stroke();
+
+        // Dibujar la línea de proyección (línea azul discontinua) que pasa por el origen
+        const diag = Math.sqrt(ctx.canvas.width * ctx.canvas.width + ctx.canvas.height * ctx.canvas.height);
+        ctx.beginPath();
+        ctx.strokeStyle = "blue";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(-nx * diag, -ny * diag);
+        ctx.lineTo(nx * diag, ny * diag);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Para cada punto, dibujar una línea (verde, discontinua) desde el punto original a su proyección
+        ctx.strokeStyle = "green";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        points.forEach(function(p) {
+            const dot = p.x * nx + p.y * ny;
+            const proj = { x: nx * dot, y: ny * dot };
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(proj.x, proj.y);
+            ctx.stroke();
+        });
+        ctx.setLineDash([]);
+    }
+
+    // Dibuja la visualización de la proyección central
+    function drawCentralProjectionVisual(ctx) {
+        const f = parseFloat(document.getElementById('focal').value) || 300;
+        // Dibujar el centro de proyección en (0, -f)
+        ctx.beginPath();
+        ctx.fillStyle = "purple";
+        ctx.arc(0, -f, 5, 0, 2 * Math.PI);
+        ctx.fill();
+        // Dibujar la pantalla (línea de proyección) en y=0
+        const width = ctx.canvas.width;
+        ctx.beginPath();
+        ctx.strokeStyle = "orange";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(-width/2, 0);
+        ctx.lineTo(width/2, 0);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Dibujar líneas desde cada punto al punto proyectado en la pantalla
+        ctx.strokeStyle = "green";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        points.forEach(function(p) {
+            // Se calcula t para que la recta que une el centro (0,-f) y el punto P interseque y=0
+            const t = f / (p.y + f);
+            const proj = { x: t * p.x, y: 0 };
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(proj.x, proj.y);
+            ctx.stroke();
+        });
+        ctx.setLineDash([]);
+    }
+
+    // ----------------------------
+    //  Interaction: dragging vertices
+    // ----------------------------
+    function dragStart(e) {
+        e = mousePos(e);
+        var pos = fromCanvasToPointSpace(e);
+        for (var i = 0; i < points.length; i++) {
+            var dx = points[i].x - pos.x;
+            var dy = points[i].y - pos.y;
+            if ((dx * dx) + (dy * dy) < style.point.radius * style.point.radius) {
+                drag = i;
+                draggedPoint = pos;
+                canvas1.style.cursor = "move";
+                return;
+            }
+        }
+    }
+    function dragging(e) {
+        if (drag != null) {
+            e = mousePos(e);
+            var pos = fromCanvasToPointSpace(e);
+            points[drag].x += pos.x - draggedPoint.x;
+            points[drag].y += pos.y - draggedPoint.y;
+            draggedPoint = pos;
+            drawCanvas();
+        }
+    }
+    function dragEnd(e) {
+        drag = null;
+        canvas1.style.cursor = "default";
+        drawCanvas();
+    }
+    function mousePos(event) {
+        event = (event ? event : window.event);
+        return {
+            x: event.pageX - canvas1.offsetLeft,
+            y: event.pageY - canvas1.offsetTop
+        };
+    }
+    function fromCanvasToPointSpace(canvasPoint) {
+        return { x: canvasPoint.x - canvas1.width/2, y: canvasPoint.y - canvas1.height/2 };
+    }
+
+    // ----------------------------
+    //  Example
+    // ----------------------------
+    var scalingFunction = function(point) {
+        var matrix = math.matrix([[0.5, 0], [0, 0.5]]);
+        var pointAsArray = [point.x, point.y];
+        var result = math.multiply(matrix, pointAsArray);
+        return { x: result.get([0]), y: result.get([1]) };
+    };
+    // ----------------------------
+    //  Transformation functions
+    // ----------------------------
+    var translationFunction = function(point) {
+        const tx = parseInt(document.getElementById('tx').value) || 0;
+        const ty = parseInt(document.getElementById('ty').value) || 0;
+        return { x: point.x + tx, y: point.y - ty };
+    };
+    var rotateFunction = function(point) {
+        const angle = parseInt(document.getElementById('degrees').value) || 0;
+        //convert degrees to radians
+        var radians = angle * Math.PI/180;
+        return {
+            //standard rotation matrix formula
+            x: point.x * Math.cos(radians) - point.y * Math.sin(radians),
+            y: point.x * Math.sin(radians) + point.y * Math.cos(radians)
+        };
+    };
+    var freeScalingFunction = function(point) {
+        // allows stretching or compressing a point independently on each of the axes
+        const Y1 = parseFloat(document.getElementById('Y1').value) || 1; //x axis
+        const Y2 = parseFloat(document.getElementById('Y2').value) || 1; // y axis
+        //apply same logic as the example scaling function
+        var matrix = math.matrix([[Y1, 0], [0, Y2]]);
+        var pointAsArray = [point.x, point.y];
+        var result = math.multiply(matrix, pointAsArray);
+        return { x: result.get([0]), y: result.get([1]) };
+    };
+    var reflectionFunction = function(point) {
+        // Reflect a point across the x-axis
+        return { x: point.x, y: -point.y };
+    };
+    var translationRotationFunction = function(point) {
+        // Translate the point by tx, ty
+        // Rotate the point by angle degrees
+        const tx = parseInt(document.getElementById('tx_2').value) || 0;
+        const ty = parseInt(document.getElementById('ty_2').value) || 0;
+        var translated = { x: point.x + tx, y: point.y - ty };
+        const angle = parseInt(document.getElementById('degrees_2').value) || 0;
+        var radians = angle * Math.PI/180;
+        return {
+            //standard rotation matrix formula
+            //x' = x * cos(θ) - y * sin(θ)
+            //y' = x * sin(θ) + y * cos(θ)
+            x: translated.x * Math.cos(radians) - translated.y * Math.sin(radians),
+            y: translated.x * Math.sin(radians) + translated.y * Math.cos(radians)
+        };
+    };
+    var rotationTranslationFunction = function(point) {
+        // Rotate the point by angle degrees
+        // Translate the point by tx, ty
+        const angle = parseInt(document.getElementById('degrees_2').value) || 0;
+        var radians = angle * Math.PI/180;
+        var rotated = {
+            x: point.x * Math.cos(radians) - point.y * Math.sin(radians),
+            y: point.x * Math.sin(radians) + point.y * Math.cos(radians)
+        };
+        const tx = parseInt(document.getElementById('tx_2').value) || 0;
+        const ty = parseInt(document.getElementById('ty_2').value) || 0;
+        return { x: rotated.x + tx, y: rotated.y - ty };
+    };
+    
+    var parallelProjectionFunction = function(point) {
+        // Parallel projection maps a point in space to its projection on a line.
+        // This projects points along a direction given by vector (dx,dy) onto the line spanned by that vector.
+        const dx = parseInt(document.getElementById('dx').value) || 1;
+        const dy = parseInt(document.getElementById('dy').value) || 0;
+        //calculate the length of the vector (pythagorean theorem)
+        const length = Math.sqrt(dx * dx + dy * dy);
+        //normalize the vector
+        const nx = dx / length;
+        const ny = dy / length;
+        // This value represents the scalar projection of the point onto the direction vector.
+        const dot = point.x * nx + point.y * ny;
+        //This places the projected point along the projection line at the correct distance
+        return { x: nx * dot, y: ny * dot };
+    };
+    var centralProjectionFunction = function(point) {
+        // Central projection from point (0,-f) onto the line y=0
+        const f = parseFloat(document.getElementById('focal').value) || 100;
+        // For a point (x,y), the projected x-coordinate is:
+        // x * f / (y + f)
+        // This represents the intersection of the line connecting (0,-f) and (x,y) with the line y=0
+        if (point.y === -f) {
+            // Handle the case where point is at the center of projection
+            return { x: 0, y: 0 };
+        }
+
+        return { x: point.x * f / (point.y + f), y: 0 };
+    };
+
+    // ----------------------------
+    //  Control buttons
+    // ----------------------------
+    function doReset() {
+        myTransformation = function(p){return p};
+        drawCanvas();
+    }
+    function doScaling() {
+        myTransformation = scalingFunction;
+        drawCanvas();
+    }
+    // PROBLEM 1
+    function doTranslation() {
+        myTransformation = translationFunction;
+        drawCanvas();
+    }
+    function doRotation() {
+        myTransformation = rotateFunction;
+        drawCanvas();
+    }
+    function doFreeScaling() {
+        myTransformation = freeScalingFunction;
+        drawCanvas();
+    }
+    function reflection() {
+        myTransformation = reflectionFunction;
+        drawCanvas();
+    }
+
+    // PROBLEM 2
+    function doTranslationRotation() {
+        myTransformation = translationRotationFunction;
+        drawCanvas();
+    }
+    function doRotationTranslation() {
+        myTransformation = rotationTranslationFunction;
+        drawCanvas();
+    }
+    function reflectionLine() {
+        myTransformation = reflectionLineFunction;
+        drawCanvas();
+    }
+
+    // PROBLEM 3
+    function doParallelProjection() {
+        myTransformation = parallelProjectionFunction;
+        drawCanvas();
+    }
+    function doCentralProjection() {
+        myTransformation = centralProjectionFunction;
+        drawCanvas();
+    }
+
+    // Draw reflection line if user has set slope/intercept (Problem 2)
+    function drawReflectionLine(ctx) {
+        const m = parseFloat(document.getElementById('slope').value);
+        const b = parseFloat(document.getElementById('intercept').value);
+        // If slope/intercept are NaN or not set, don't draw
+        if (isNaN(m) || isNaN(b)) return;
+        const width = ctx.canvas.width;
+        const startX = -width/2;
+        const endX = width/2;
+        const startY = m * startX + b;
+        const endY = m * endX + b;
+        ctx.beginPath();
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 2;
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+    }
+    
+    var reflectionLineFunction = function(point) {
+    
+        const m = parseFloat(document.getElementById('slope').value) || 0;
+    const b = parseFloat(document.getElementById('intercept').value) || 0;
+
+    // For reflection across line y = mx + b:
+    // First find the closest point on the line to our point
+    const x1 = point.x;
+    const y1 = point.y;
+    
+    // The perpendicular line through our point has slope -1/m
+    // We need to find the intersection of this perpendicular line with our reflection line
+    
+    // If m is 0 (horizontal line), special case
+    if (m === 0) {
+        // Reflect across horizontal line y = b
+        return { x: x1, y: 2*b - y1 };
+    }
+    // If m is infinite (vertical line), special case
+    if (!isFinite(m)) {
+        // Reflect across vertical line x = b
+        return { x: 2*b - x1, y: y1 };
+    }
+    
+    // General case
+    // The intersection point is:
+    const x0 = (m*y1 + x1 - m*b)/(1 + m*m);
+    const y0 = m*x0 + b;
+    
+    // The reflection of (x1,y1) across (x0,y0) is (2*x0-x1, 2*y0-y1)
+    return { x: 2*x0 - x1, y: 2*y0 - y1 };
+};
+
+    // ----------------------------
+    //  Problem 4
+    // ----------------------------
+    function doCheckAffinePreservation() {
+        // We'll test midpoint preservation on the first two points in 'points'.
+        let A = points[0];
+        let B = points[1];
+        // Midpoint in original space
+        let M = { x: (A.x + B.x)/2, y: (A.y + B.y)/2 };
+
+        // Transform them
+        let T_A = myTransformation(A);
+        let T_B = myTransformation(B);
+        let T_M = myTransformation(M);
+
+        // Midpoint of T(A) and T(B)
+        let midpointX = (T_A.x + T_B.x)/2;
+        let midpointY = (T_A.y + T_B.y)/2;
+
+        // Display numerically
+        let msg = "";
+        msg += "Using current transformation:<br>";
+        msg += "A = ("+A.x+", "+A.y+"), B = ("+B.x+", "+B.y+") <br>";
+        msg += "M (midpoint) = ("+M.x.toFixed(2)+", "+M.y.toFixed(2)+") <br><br>";
+        msg += "T(A) = ("+T_A.x.toFixed(2)+", "+T_A.y.toFixed(2)+") <br>";
+        msg += "T(B) = ("+T_B.x.toFixed(2)+", "+T_B.y.toFixed(2)+") <br>";
+        msg += "T(M) = ("+T_M.x.toFixed(2)+", "+T_M.y.toFixed(2)+") <br><br>";
+        msg += "Midpoint of [T(A), T(B)] = ("+midpointX.toFixed(2)+", "+midpointY.toFixed(2)+")<br><br>";
+
+        // Check if T(M) equals midpoint of T(A), T(B)
+        let dx = Math.abs(T_M.x - midpointX);
+        let dy = Math.abs(T_M.y - midpointY);
+        if (dx < 1e-5 && dy < 1e-5) {
+            msg += "<strong>Result:</strong> T(M) matches the midpoint of T(A) and T(B).<br>";
+            msg += "=> This transformation preserves these affine combinations (midpoints).";
+        } else {
+            msg += "<strong>Result:</strong> T(M) does <em>not</em> match the midpoint of T(A) and T(B).<br>";
+            msg += "=> This transformation <em>does not</em> preserve affine combinations in general.";
+        }
+
+        document.getElementById("affineResults").innerHTML = msg;
+    }
+
+    // ----------------------------
+    // Initialize
+    // ----------------------------
+    canvas1 = document.getElementById("canvas1");
+    context1 = canvas1.getContext("2d");
+    canvas2 = document.getElementById("canvas2");
+    context2 = canvas2.getContext("2d");
+
+    init();
+</script>
+</body>
+</html>
