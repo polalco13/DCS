@@ -98,12 +98,15 @@
     <summary><strong>Problem 4</strong></summary>
     <p>
         <strong>Question:</strong> Which of the two projections (Parallel and Central) preserve affine combinations?<br>
-        <strong>Answer (justified):</strong><br>
-        A <em>parallel projection</em> (as implemented here) is effectively a linear (and thus affine) map, so
-        it preserves affine combinations such as midpoints.<br>
-        A <em>central (perspective) projection</em> is <strong>not</strong> an affine map; it depends on dividing by 
-        \( (y+f) \) to “project” onto the line \( y=0 \). This makes it a projective transformation—so it does 
-        <strong>not</strong> preserve affine combinations in general.
+        <strong>Answer:</strong><br>
+        <p><em>Parallel projection</em> preserves affine combinations, including midpoints. This is because 
+        parallel projection is a linear transformation that maps points along constant direction vectors 
+        onto a line, maintaining the proportional relationships between points.</p>
+        
+        <p><em>Central (perspective) projection</em> does <strong>not</strong> preserve affine combinations. 
+        Since it involves division by (y+f) to project points onto the line y=0, it's a non-linear, 
+        projective transformation. The ratio of distances between projected points varies based on their 
+        original distances from the projection center.</p>
     </p>
     <p>
         Click below to check numerically with the currently selected transformation (whichever you set above). We'll use
@@ -381,7 +384,7 @@
     }
 
     // ----------------------------
-    //  Transformation functions
+    //  Example
     // ----------------------------
     var scalingFunction = function(point) {
         var matrix = math.matrix([[0.5, 0], [0, 0.5]]);
@@ -389,6 +392,9 @@
         var result = math.multiply(matrix, pointAsArray);
         return { x: result.get([0]), y: result.get([1]) };
     };
+    // ----------------------------
+    //  Transformation functions
+    // ----------------------------
     var translationFunction = function(point) {
         const tx = parseInt(document.getElementById('tx').value) || 0;
         const ty = parseInt(document.getElementById('ty').value) || 0;
@@ -396,36 +402,47 @@
     };
     var rotateFunction = function(point) {
         const angle = parseInt(document.getElementById('degrees').value) || 0;
+        //convert degrees to radians
         var radians = angle * Math.PI/180;
         return {
+            //standard rotation matrix formula
             x: point.x * Math.cos(radians) - point.y * Math.sin(radians),
             y: point.x * Math.sin(radians) + point.y * Math.cos(radians)
         };
     };
     var freeScalingFunction = function(point) {
-        const Y1 = parseFloat(document.getElementById('Y1').value) || 1;
-        const Y2 = parseFloat(document.getElementById('Y2').value) || 1;
+        // allows stretching or compressing a point independently on each of the axes
+        const Y1 = parseFloat(document.getElementById('Y1').value) || 1; //x axis
+        const Y2 = parseFloat(document.getElementById('Y2').value) || 1; // y axis
+        //apply same logic as the example scaling function
         var matrix = math.matrix([[Y1, 0], [0, Y2]]);
         var pointAsArray = [point.x, point.y];
         var result = math.multiply(matrix, pointAsArray);
         return { x: result.get([0]), y: result.get([1]) };
     };
     var reflectionFunction = function(point) {
-        // Reflect across X-axis => (x, -y)
+        // Reflect a point across the x-axis
         return { x: point.x, y: -point.y };
     };
     var translationRotationFunction = function(point) {
+        // Translate the point by tx, ty
+        // Rotate the point by angle degrees
         const tx = parseInt(document.getElementById('tx_2').value) || 0;
         const ty = parseInt(document.getElementById('ty_2').value) || 0;
         var translated = { x: point.x + tx, y: point.y - ty };
         const angle = parseInt(document.getElementById('degrees_2').value) || 0;
         var radians = angle * Math.PI/180;
         return {
+            //standard rotation matrix formula
+            //x' = x * cos(θ) - y * sin(θ)
+            //y' = x * sin(θ) + y * cos(θ)
             x: translated.x * Math.cos(radians) - translated.y * Math.sin(radians),
             y: translated.x * Math.sin(radians) + translated.y * Math.cos(radians)
         };
     };
     var rotationTranslationFunction = function(point) {
+        // Rotate the point by angle degrees
+        // Translate the point by tx, ty
         const angle = parseInt(document.getElementById('degrees_2').value) || 0;
         var radians = angle * Math.PI/180;
         var rotated = {
@@ -436,33 +453,34 @@
         const ty = parseInt(document.getElementById('ty_2').value) || 0;
         return { x: rotated.x + tx, y: rotated.y - ty };
     };
-    var reflectionLineFunction = function(point) {
-        const m = parseFloat(document.getElementById('slope').value) || 0;
-        const b = parseFloat(document.getElementById('intercept').value) || 0;
-        const numerator = (1 - m*m)*point.x + 2*m*(point.y - b);
-        const denominator = 1 + m*m;
-        const xNew = numerator / denominator;
-        const yNew = m * xNew + 2*b - point.y;
-        return { x: xNew, y: yNew };
-    };
+    
     var parallelProjectionFunction = function(point) {
-        // Parallel projection along vector (dx,dy), projecting onto the line spanned by that vector.
+        // Parallel projection maps a point in space to its projection on a line.
+        // This projects points along a direction given by vector (dx,dy) onto the line spanned by that vector.
         const dx = parseInt(document.getElementById('dx').value) || 1;
         const dy = parseInt(document.getElementById('dy').value) || 0;
+        //calculate the length of the vector (pythagorean theorem)
         const length = Math.sqrt(dx * dx + dy * dy);
+        //normalize the vector
         const nx = dx / length;
         const ny = dy / length;
+        // This value represents the scalar projection of the point onto the direction vector.
         const dot = point.x * nx + point.y * ny;
+        //This places the projected point along the projection line at the correct distance
         return { x: nx * dot, y: ny * dot };
     };
     var centralProjectionFunction = function(point) {
-        // Center of projection: C = (0, -f), project onto y=0
-        const f = parseFloat(document.getElementById('focal').value) || 300;
-        // t = f / (p.y + f) so that the new point has y=0
-        const denom = point.y + f;
-        // avoid dividing by 0
-        let t = (Math.abs(denom) < 1e-12) ? 1 : f / denom;
-        return { x: t * point.x, y: 0 };
+        // Central projection from point (0,-f) onto the line y=0
+        const f = parseFloat(document.getElementById('focal').value) || 100;
+        // For a point (x,y), the projected x-coordinate is:
+        // x * f / (y + f)
+        // This represents the intersection of the line connecting (0,-f) and (x,y) with the line y=0
+        if (point.y === -f) {
+            // Handle the case where point is at the center of projection
+            return { x: 0, y: 0 };
+        }
+
+        return { x: point.x * f / (point.y + f), y: 0 };
     };
 
     // ----------------------------
@@ -476,6 +494,7 @@
         myTransformation = scalingFunction;
         drawCanvas();
     }
+    // PROBLEM 1
     function doTranslation() {
         myTransformation = translationFunction;
         drawCanvas();
@@ -492,6 +511,8 @@
         myTransformation = reflectionFunction;
         drawCanvas();
     }
+
+    // PROBLEM 2
     function doTranslationRotation() {
         myTransformation = translationRotationFunction;
         drawCanvas();
@@ -504,6 +525,8 @@
         myTransformation = reflectionLineFunction;
         drawCanvas();
     }
+
+    // PROBLEM 3
     function doParallelProjection() {
         myTransformation = parallelProjectionFunction;
         drawCanvas();
@@ -531,16 +554,45 @@
         ctx.lineTo(endX, endY);
         ctx.stroke();
     }
+    
+    var reflectionLineFunction = function(point) {
+    
+        const m = parseFloat(document.getElementById('slope').value) || 0;
+    const b = parseFloat(document.getElementById('intercept').value) || 0;
+
+    // For reflection across line y = mx + b:
+    // First find the closest point on the line to our point
+    const x1 = point.x;
+    const y1 = point.y;
+    
+    // The perpendicular line through our point has slope -1/m
+    // We need to find the intersection of this perpendicular line with our reflection line
+    
+    // If m is 0 (horizontal line), special case
+    if (m === 0) {
+        // Reflect across horizontal line y = b
+        return { x: x1, y: 2*b - y1 };
+    }
+    // If m is infinite (vertical line), special case
+    if (!isFinite(m)) {
+        // Reflect across vertical line x = b
+        return { x: 2*b - x1, y: y1 };
+    }
+    
+    // General case
+    // The intersection point is:
+    const x0 = (m*y1 + x1 - m*b)/(1 + m*m);
+    const y0 = m*x0 + b;
+    
+    // The reflection of (x1,y1) across (x0,y0) is (2*x0-x1, 2*y0-y1)
+    return { x: 2*x0 - x1, y: 2*y0 - y1 };
+};
 
     // ----------------------------
-    //  Problem 4 demonstration
+    //  Problem 4
     // ----------------------------
     function doCheckAffinePreservation() {
         // We'll test midpoint preservation on the first two points in 'points'.
-        if (points.length < 2) {
-            document.getElementById("affineResults").innerHTML = "Need at least two points!";
-            return;
-        }
         let A = points[0];
         let B = points[1];
         // Midpoint in original space
