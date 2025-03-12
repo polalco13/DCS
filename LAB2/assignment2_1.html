@@ -1,120 +1,183 @@
- <html> 
-      <head> 
-      <title>DCS - 2.1</title> 
+<!DOCTYPE html>
+<html>
+<head>
+  <title>3D Helix Curves</title>
+  <style>
+    body { margin: 0; }
+    canvas { display: block; }
+    #controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1; /* Ensure controls are on top */
+    }
+    #controls label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    #controls input[type="range"] {
+      width: 150px;
+      margin-right:5px;
+    }
+  </style>
+</head>
+<body>
 
-      </head>
+<div id="controls">
+    <label>
+        Curve Type:
+        <select id="curveType">
+            <option value="elliptical">Elliptical Helix</option>
+            <option value="spiral">Spiral Helix</option>
+        </select>
+    </label>
 
-      <body>
+    <label>
+        Major Radius (a): <input type="range" id="majorRadius" min="1" max="20" value="5" step="0.1"> <span id="majorRadiusValue">5</span>
+    </label>
+    <label>
+        Minor Radius (b): <input type="range" id="minorRadius" min="1" max="20" value="2" step="0.1"> <span id="minorRadiusValue">2</span>
+    </label>
+    <label>
+        Height (h): <input type="range" id="height" min="1" max="50" value="10" step="0.1"> <span id="heightValue">10</span>
+    </label>
+    <label>
+        Turns (n): <input type="range" id="turns" min="1" max="10" value="3" step="0.1"> <span id="turnsValue">3</span>
+    </label>
+     <label>
+       Spiral Factor (s): <input type="range" id="spiralFactor" min="0.1" max="2" value="0.5" step="0.01">  <span id="spiralFactorValue">0.5</span>
+    </label>
+</div>
 
-      <h1>DCS - 2.1 Elliptic helix in 3D</h1>
 
-      <script src="math.min.js"></script>
-      <script src="three.min.js"></script>
-      <script src="OrbitControlsDCS.js"></script>
 
-     <script type="text/javascript">
-        /**
-        * Based on code by Ikaros Kappler from http://int2byte.de/public/blog.20160129_Three.js_Basic_Scene_Setup/
-        **/
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.rawgit.com/mrdoob/three.js/r128/examples/js/controls/OrbitControls.js"></script>
 
-        // Create new scene
-        this.scene = new THREE.Scene();
+<script>
+    let scene, camera, renderer, controls, line;
 
-        // Create a camera to look through
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-
-        // Initialize a new THREE renderer (you are also allowed
-        // to pass an existing canvas for rendering).
-        this.renderer = new THREE.WebGLRenderer( { antialias : true, alpha:true } );
-        this.renderer.setSize(800, 600);
-
-        // ... and append it to the DOM
+    function init() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0xE8E8E8E8); // Set background color to gray
         document.body.appendChild(renderer.domElement);
 
-        var lineGeom = new THREE.Geometry();
+        camera.position.set(50, 50, 50);
+        camera.lookAt(scene.position);
 
-        buildGeometry(lineGeom);
-
-        var lineMat = new THREE.LineBasicMaterial( {
-            color:  0xA000A0  // purple; the default is white
-        } );
-
-        var line = new THREE.Line( lineGeom, lineMat, THREE.LineStrip );
-
-        this.scene.add(line);
-
-
-        // Add some light
-        this.pointLight = new THREE.PointLight(0xFFFFFF);
-        //this.pointLight = new THREE.AmbientLight(0xFFFFFF);
-
-        // set its position
-        this.pointLight.position.x = 10;
-        this.pointLight.position.y = 50;
-        this.pointLight.position.z = 130;
-
-        // add to the scene
-        this.scene.add( this.pointLight );
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.25;
+        controls.enableZoom = true;
 
 
         // Add grid helper
-        var gridHelper = new THREE.GridHelper( 90, 9 );
-        gridHelper.colorGrid = 0xE8E8E8;
-        this.scene.add( gridHelper );
-
+        const gridHelper = new THREE.GridHelper( 100, 20 );
+        gridHelper.colorGrid = 0x888888;
+        scene.add( gridHelper );
 
         // Add an axis helper
-        var ah = new THREE.AxisHelper(50);
-        ah.position.y -= 0.1;  // The axis helper should not interfere with the grid helper
-        this.scene.add( ah );
+        const axesHelper = new THREE.AxesHelper( 50 );
+        scene.add( axesHelper );
+
+        // Add ambient light
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        //Add directional light
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
 
 
-        // Set the camera position
-        this.camera.position.set( 50, 50, 50);
-        this.camera.lookAt(line.position);
+        updateCurve(); // Initial curve draw
+        animate();
+    }
 
-        // Finally we want to be able to rotate the whole scene with the mouse:
-        // Add an orbit control helper.
-        var _self = this;
-        this.orbitControls = new THREE.OrbitControls( this.camera, this.renderer.domElement );
-        // Always move the point light with the camera. Looks much better ;)
-        this.orbitControls.addEventListener( 'change',
-        function() { _self.pointLight.position.copy(_self.camera.position); }
-        );
-        this.orbitControls.enableDamping = true;
-        this.orbitControls.dampingFactor = 1.0;
-        this.orbitControls.enableZoom    = true;
-        this.orbitControls.target.copy(line.position);
+    function updateCurve() {
+        const curveType = document.getElementById('curveType').value;
+        const a = parseFloat(document.getElementById('majorRadius').value);
+        const b = parseFloat(document.getElementById('minorRadius').value);
+        const h = parseFloat(document.getElementById('height').value);
+        const n = parseFloat(document.getElementById('turns').value);
+        const s = parseFloat(document.getElementById('spiralFactor').value);
 
+        // Update value displays
+        document.getElementById('majorRadiusValue').textContent = a;
+        document.getElementById('minorRadiusValue').textContent = b;
+        document.getElementById('heightValue').textContent = h;
+        document.getElementById('turnsValue').textContent = n;
+        document.getElementById('spiralFactorValue').textContent = s;
 
-        // This is the basic render function. It will be called perpetual, again and again,
-        // depending on your machines possible frame rate.
-        this._render = function () {
-            // Pass the render function itself
-            requestAnimationFrame(this._render);
-            this.renderer.render(this.scene, this.camera);
-        };
+        const points = [];
+        const numPoints = 200;
 
-        // Call the rendering function. This will cause an infinite recursion
-        this._render();
+        for (let i = 0; i <= numPoints; i++) {
+            const t = (i / numPoints) * Math.PI * 2 * n;
+            let x, y, z;
 
-
-        /**
-         *  This is the function where the actual points on the curve are computed
-         *
-         *  TODO: Change this function to draw a different curve
-         */
-
-        function buildGeometry(lineGeometry) {
-			var sign=1;
-            for (var i=0;i<50;i++){
-				lineGeom.vertices.push(new THREE.Vector3(0.5*i,i,sign*i));
-				sign = -sign;
+            if (curveType === 'elliptical') {
+                x = a * Math.cos(t);
+                y = b * Math.sin(t);
+                z = (h / (2 * Math.PI * n)) * t;
+            } else { // spiral
+                const radius = (s * t / (2*Math.PI)); // Linearly increasing radius
+                x = radius * Math.cos(t);
+                y = radius * Math.sin(t);
+                z = (h / (2 * Math.PI * n)) * t;
             }
-        }
-	  
-	  </script>
-      <br>
-		Note: X axis is red, Y axis is green, Z axis is blue. Each grid square on the plane Y=0 has size 10x10.      </body>
 
-      </html>
+            points.push(new THREE.Vector3(x, z, y)); // Swap y and z for Three.js coordinate system
+        }
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+        // Remove the old line if it exists
+        if (line) {
+            scene.remove(line);
+            line.geometry.dispose();
+            line.material.dispose();
+        }
+
+        const material = new THREE.LineBasicMaterial({ color: 0x0000ff });
+        line = new THREE.Line(geometry, material);
+        scene.add(line);
+    }
+
+
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    // Event listeners for control changes
+    document.getElementById('curveType').addEventListener('change', updateCurve);
+    document.getElementById('majorRadius').addEventListener('input', updateCurve);
+    document.getElementById('minorRadius').addEventListener('input', updateCurve);
+    document.getElementById('height').addEventListener('input', updateCurve);
+    document.getElementById('turns').addEventListener('input', updateCurve);
+    document.getElementById('spiralFactor').addEventListener('input', updateCurve);
+
+
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }, false);
+
+    init();
+
+
+</script>
+</body>
+</html>
