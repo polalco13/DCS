@@ -1,130 +1,101 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>DCS - 2.2</title>
-
-    <!--- Math.js library, for matrix manipulation, and many other things--->
-    <script src=https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js></script>
+    <title>DCS - 2.2: Reflection Property of a Parabola</title>
+    <!-- Math.js library (optional) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
 </head>
-
 <body>
 
-<h1>DCS - 2.2 Properties of conics</h1>
+<h1>DCS - 2.2 Properties of Conics: Parabolic Reflection</h1>
 
-<canvas id="canvas1" height="600" width="600" class="bezier"  style="border:1px solid #d3d3d3;"></canvas>
+<canvas id="canvas1" height="600" width="600" style="border:1px solid #d3d3d3;"></canvas>
 <br>
 <button type="button" onclick="doReset()">Reset</button>
-<button type="button" onclick="computeConic()">Draw some conic</button>
+<button type="button" onclick="computeConic()">Draw Parabola and Reflections</button>
 
+<!-- Explanation text will appear below the canvas -->
+<div id="explanation" style="margin-top:20px; font-family: Arial, sans-serif; font-size: 16px;"></div>
 
 <script type="text/javascript">
+    var canvas1, context1, points, myTransformation, style;
 
-    /*
-    * Part of this code is based on:
-        * http://blogs.sitepoint.com/html5-canvas-draw-quadratic-curves/
-        * http://blogs.sitepoint.com/html5-canvas-draw-bezier-curves/
-    */
-
-    var canvas1, context1, points, myTransformation, style, drag = null, draggedPoint;
-
-    // TODO replace these points but those of the corresponding conic function (on-the-fly)
+    // Some initial point (not used in the final drawing)
     points = [{ x:0, y:0 }];
 
     function init() {
+        myTransformation = function(p){return p}; // Identity transform
 
-        myTransformation = function(p){return p}; //Identity transform
-
-        // default styles
+        // Default drawing styles
         style = {
             curve:	{ width: 6, color: "#333" },
             line:	{ width: 1, color: "#C00" },
             point: { radius: 10, width: 2, color: "#900", fill: "rgba(200,200,200,0.5)", arc1: 0, arc2: 2 * Math.PI }
-        }
+        };
 
-        // line style defaults
+        // Set line caps and joins
         context1.lineCap = "round";
         context1.lineJoin = "round";
 
-        // Translate origin to center of canvas
-        context1.translate(canvas1.width/2,canvas1.height/2);
-		
-		// Flip y-axis, so it looks like in standard math axes
-		context1.scale(1,-1) // Reversed y-axis
+        // Translate the origin to the center of the canvas
+        context1.translate(canvas1.width/2, canvas1.height/2);
+        // Flip y-axis so that positive y is upward (like in math)
+        context1.scale(1, -1);
 
         drawCanvas();
     }
 
-
-    /**
-     Basic drawing methods
-     **/
-
-
-    // draw canvas
+    // Draw the background grid and any fixed elements
     function drawCanvas() {
-        // Clear everything
-        context1.clearRect(0, 0, canvas1.width, canvas1.height);  // Clear canvas
-
-        // Background grids
-        drawGrid(context1,canvas1.width, canvas1.height); // Draw background grid
-
-        // Original points and vertices
-        drawCurve(context1, style, points); // Draw curve
-        drawVertices(context1, style, points); // Draw vertices as circles
-
+        // Clear entire canvas
+        context1.clearRect(-canvas1.width/2, -canvas1.height/2, canvas1.width, canvas1.height);
+        // Draw background grid
+        drawGrid(context1, canvas1.width, canvas1.height);
+        // Optionally draw initial curve/points (if needed)
+        drawCurve(context1, style, points);
+        drawVertices(context1, style, points);
     }
 
-
-    // Draw a background grid
-    function drawGrid(myContext,bw,bh){
+    // Draw a grid on the canvas
+    function drawGrid(myContext, bw, bh){
         var delta = 50; // grid cell size
-
         var half_width = bw/2;
         var half_height = bh/2;
+        myContext.beginPath();
         for (var x = -half_width; x <= half_width; x += delta) {
             myContext.moveTo(x, -half_height);
             myContext.lineTo(x, half_height);
         }
-
         for (var y = -half_height; y <= half_height; y += delta) {
             myContext.moveTo(-half_width, y);
-            myContext.lineTo(half_width , y);
+            myContext.lineTo(half_width, y);
         }
-
         myContext.lineWidth = 1;
         myContext.strokeStyle = "lightgray";
         myContext.stroke();
-
-   
-
     }
 
-    // Draws a polygonal curve connecting the points, after applying the given transformation
+    // Draws a polygonal curve connecting the points
     function drawCurve(ctx, style, points, transformation) {
-        // The transformation is optional. If none provided, use identity transform
-        if (transformation===undefined) {
-            transformation = function(p){return p}; //Identity transform
+        // Use identity transformation if none provided
+        if (transformation === undefined) {
+            transformation = function(p){return p};
         }
-
-        // Draw curve
         ctx.lineWidth = style.curve.width;
         ctx.strokeStyle = style.curve.color;
         ctx.beginPath();
         var firstPoint = transformation(points[0]);
-        var currentPoint;
         ctx.moveTo(firstPoint.x, firstPoint.y);
         for (var i = 0; i < points.length; i++) {
-            currentPoint =  transformation(points[i]);
+            var currentPoint = transformation(points[i]);
             ctx.lineTo(currentPoint.x, currentPoint.y);
-            ctx.moveTo(currentPoint.x, currentPoint.y);
         }
         ctx.stroke();
     }
 
-    // Draw circles around vertices to facilitate drag and drop
-    function drawVertices (ctx, style, points) {
+    // Draw circles at given vertices
+    function drawVertices(ctx, style, points) {
         for (var i = 0; i < points.length; i++) {
             var p = points[i];
             ctx.lineWidth = style.point.width;
@@ -137,34 +108,94 @@
         }
     }
 
+    // Reset canvas and clear explanation text
+    function doReset () {
+        myTransformation = function(p){return p}; // Identity transform
+        document.getElementById("explanation").innerHTML = "";
+        drawCanvas();
+    }
 
-    /**
-     * Start ("main method")
-     */
+    // This function draws the parabola, the vertical incident rays, and their reflected rays.
+    function computeConic() {
+        // Clear and redraw the grid and any previous drawings
+        drawCanvas();
 
-    // Assign canvas and context variables
+        // --- Draw the parabola: y = x^2/200 ---
+        var parabolaPoints = [];
+        // Choose an appropriate range for x (here from -250 to 250)
+        for (var x = -250; x <= 250; x += 1) {
+            var y = x * x / 200;
+            parabolaPoints.push({ x: x, y: y });
+        }
+        context1.lineWidth = 2;
+        context1.strokeStyle = "blue";
+        context1.beginPath();
+        context1.moveTo(parabolaPoints[0].x, parabolaPoints[0].y);
+        for (var i = 1; i < parabolaPoints.length; i++) {
+            context1.lineTo(parabolaPoints[i].x, parabolaPoints[i].y);
+        }
+        context1.stroke();
+
+        // --- Mark the Focus ---
+        // For y = x^2/200 we can write y = x^2/(4p), so that 1/(4p)=1/200, hence 4p=200, which implies p=50.
+        // With the vertex at the origin, the focus is at (0,p) = (0,50).
+        var focus = { x: 0, y: 50 };
+        context1.fillStyle = "red";
+        context1.beginPath();
+        context1.arc(focus.x, focus.y, 5, 0, 2 * Math.PI);
+        context1.fill();
+
+        // Draw a label "F" for the focus.
+        context1.save();
+        context1.scale(1, -1);
+        context1.font = "14px Arial";
+        context1.fillStyle = "red";
+        context1.fillText("F", focus.x + 5, -focus.y + 5);
+        context1.restore();
+
+        // --- Draw vertical rays and their reflections ---
+        var rayStartY = 300;  // Starting y-coordinate for the vertical rays.
+        var xValues = [-200, -150, -100, -50, 0, 50, 100, 150, 200];
+        for (var i = 0; i < xValues.length; i++) {
+            var x = xValues[i];
+            // The ray meets the parabola where y = x^2/200.
+            var yHit = x * x / 200;
+
+            // Draw the incoming vertical ray in green.
+            context1.lineWidth = 1;
+            context1.strokeStyle = "green";
+            context1.beginPath();
+            context1.moveTo(x, rayStartY);
+            context1.lineTo(x, yHit);
+            context1.stroke();
+
+            // Draw the reflected ray in orange.
+            context1.strokeStyle = "orange";
+            context1.beginPath();
+            context1.moveTo(x, yHit);
+            // Reflection: the ray leaves the point (x,yHit) toward the focus (0,50)
+            var dx = focus.x - x;  // focus.x is 0.
+            var dy = focus.y - yHit;
+            // Extend the ray (t = 2) for clarity.
+            var x2 = x + 2 * dx;
+            var y2 = yHit + 2 * dy;
+            context1.lineTo(x2, y2);
+            context1.stroke();
+        }
+
+        // --- Display the Focus and Justification ---
+        var explanationText = "<strong>Focus:</strong> (0, 50)<br>" +
+            "<strong>Justification:</strong> The parabola is given by y = x<sup>2</sup>/200, " +
+            "which can be rewritten in the standard form y = x<sup>2</sup>/(4p).<br>" +
+            "Setting 1/(4p) = 1/200, we get 4p = 200, so p = 50. With the vertex at the origin, " +
+            "the focus is at (0, p) = (0, 50).";
+        document.getElementById("explanation").innerHTML = explanationText;
+    }
+
+    // Set up the canvas and initial drawing on page load.
     canvas1 = document.getElementById("canvas1");
     context1 = canvas1.getContext("2d");
-
     init();
-
-    /**
-     * Auxiliary functions
-     */
-
-
-    function doReset () {
-        myTransformation = function(p){return p}; //Identity transform
-        drawCanvas();
-    }
-
-    // This is just an example
-    function computeConic() {
-        // to something
-        alert('Code to be written!');
-        drawCanvas();
-    }
-
 </script>
 </body>
 </html>

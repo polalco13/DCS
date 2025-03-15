@@ -1,148 +1,137 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>DCS - 2.3</title>
-
-    <!--- Math.js library, for matrix manipulation, and many other things--->
-    <script src=https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js></script>
+  <meta charset="UTF-8" />
+  <title>DCS - 2.3 Rolling Circle (Hypocycloid) Example</title>
+  <!-- Math.js library (optional if you need advanced math) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
 </head>
-
 <body>
 
-<h1>DCS - 2.3 Curve parametrization</h1>
+<h1>DCS - 2.3 Curve Parametrization: Rolling Circle (Hypocycloid)</h1>
 
-<canvas id="canvas1" height="600" width="1000" class="bezier"  style="border:1px solid #d3d3d3;"></canvas>
+<canvas id="canvas1" width="1000" height="600" style="border:1px solid #d3d3d3;"></canvas>
 <br>
+<button type="button" onclick="drawRollingCurve()">Draw Rolling Curve</button>
+<button type="button" onclick="resetCanvas()">Reset</button>
+
+<!-- Explanation text will appear here -->
+<div id="explanation" style="margin-top:20px; font-family:Arial, sans-serif; font-size:16px;"></div>
 
 <script type="text/javascript">
 
-    /*
-    * Part of this code is based on:
-        * http://blogs.sitepoint.com/html5-canvas-draw-quadratic-curves/
-        * http://blogs.sitepoint.com/html5-canvas-draw-bezier-curves/
-    */
+  var canvas1   = document.getElementById("canvas1");
+  var context1  = canvas1.getContext("2d");
 
-    var canvas1, context1, points, style, drag = null, draggedPoint;
+  // Style settings
+  var style = {
+    curve:  { width: 3, color: "#CC0000" },   // red curve
+    grid:   { width: 1, color: "lightgray" },
+  };
 
-    points = [{ x:0, y:0 }];
+  // Translate the origin to the center of the canvas
+  // (So x=0,y=0 is at the center)
+  context1.translate(canvas1.width/2, canvas1.height/2);
+  // Uncomment the next line if you want the y-axis going upwards:
+  // context1.scale(1, -1);
 
-    function init() {
+  /**
+   * Draw the background grid
+   */
+  function drawGrid(ctx, w, h) {
+    var delta = 50; // grid spacing
+    var halfW = w/2, halfH = h/2;
 
-        // default styles
-        style = {
-            curve:	{ width: 3, color: "#333" },
-            line:	{ width: 1, color: "#C00" },
-            point: { radius: 10, width: 2, color: "#900", fill: "rgba(200,200,200,0.5)", arc1: 0, arc2: 2 * Math.PI }
-        }
-
-        // line style defaults
-        context1.lineCap = "round";
-        context1.lineJoin = "round";
-		
-		 // Translate origin to center of canvas
-        context1.translate(canvas1.width/2,canvas1.height/2);
-		
-        drawCanvas();
+    ctx.beginPath();
+    for (var x = -halfW; x <= halfW; x += delta) {
+      ctx.moveTo(x, -halfH);
+      ctx.lineTo(x, halfH);
     }
-
-
-    /**
-     Basic drawing methods
-     **/
-
-
-    // draw canvas
-    function drawCanvas() {
-        // Clear everything
-        context1.clearRect(0, 0, canvas1.width, canvas1.height);  // Clear canvas
-
-        // Background grids
-        drawGrid(context1,canvas1.width, canvas1.height); // Draw background grid
-
-
-        // Original points and vertices // In principle there are no vertices to draw here
-        drawCurve(context1, style, points); // Draw curve
-        //drawVertices(context1, style, points); // Draw vertices as circles
+    for (var y = -halfH; y <= halfH; y += delta) {
+      ctx.moveTo(-halfW, y);
+      ctx.lineTo(halfW, y);
     }
+    ctx.lineWidth = style.grid.width;
+    ctx.strokeStyle = style.grid.color;
+    ctx.stroke();
 
+    // (Optional) Draw the label for the origin
+    ctx.save();
+    ctx.scale(1, -1); // if you have flipped y-axis
+    ctx.fillStyle = "black";
+    ctx.font = "12px Arial";
+    ctx.fillText("(0,0)", 5, -5);
+    ctx.restore();
+  }
 
-    // Draw a background grid
-    function drawGrid(myContext,bw,bh){
-        var delta = 50; // grid cell size
+  /**
+   * Clear the canvas and redraw the grid
+   */
+  function resetCanvas() {
+    context1.clearRect(-canvas1.width/2, -canvas1.height/2, canvas1.width, canvas1.height);
+    drawGrid(context1, canvas1.width, canvas1.height);
 
-        var half_width = bw/2;
-        var half_height = bh/2;
-        for (var x = -half_width; x <= half_width; x += delta) {
-            myContext.moveTo(x, -half_height);
-            myContext.lineTo(x, half_height);
-        }
+    // Clear any explanation text
+    document.getElementById("explanation").innerHTML = "";
+  }
 
-        for (var y = -half_height; y <= half_height; y += delta) {
-            myContext.moveTo(-half_width, y);
-            myContext.lineTo(half_width , y);
-        }
+  // Draw the grid initially
+  resetCanvas();
 
-        myContext.lineWidth = 1;
-        myContext.strokeStyle = "lightgray";
-        myContext.stroke();
+  /**
+   * Draw the rolling‐circle curve (the deltoid) for R=3, r=1
+   * using the standard hypocycloid parametrization.
+   */
+  function drawRollingCurve() {
+    resetCanvas();
 
-        myContext.strokeStyle = "black";
-        myContext.font = "12px Arial";
-        myContext.fillText("(0,0)",2,12);
+    // We'll treat r=1, R=3 => (R - r) = 2 => factor in cos(2t)
+    // Param: x(t) = 2*cos(t) + cos(2t), y(t) = 2*sin(t) - sin(2t).
+    // We'll scale them by 50 so they're clearly visible.
 
+    context1.save();
+    context1.beginPath();
+    context1.lineWidth = style.curve.width;
+    context1.strokeStyle = style.curve.color;
+
+    // Start at t=0
+    var t = 0;
+    var x0 = 2*Math.cos(t) + Math.cos(2*t);
+    var y0 = 2*Math.sin(t) - Math.sin(2*t);
+    context1.moveTo(50*x0, 50*y0);
+
+    // Plot the curve from t=0 to t=2π
+    for (t = 0; t <= 2*Math.PI + 0.01; t += 0.01) {
+      var x = 2*Math.cos(t) + Math.cos(2*t);
+      var y = 2*Math.sin(t) - Math.sin(2*t);
+      context1.lineTo(50*x, 50*y);
     }
+    context1.stroke();
+    context1.restore();
 
-    // Draws a polygonal curve 
-    function drawCurve(ctx, style, points) {
-
-        // TODO: write your code to draw the (right) curve here
-        ctx.lineWidth = style.curve.width;
-        ctx.strokeStyle = style.curve.color;
-        ctx.beginPath();
-        var firstPoint = points[0];
-        var currentPoint;
-        ctx.moveTo(firstPoint.x, firstPoint.y);
-        for (var i = 0; i < 10; i=i+0.2) {
-			// TODO: replace this by the right parametrization
-            currentPoint =  {x:50*i, y:50*math.sin(-i+0.5*Math.random())};
-            ctx.lineTo(currentPoint.x, currentPoint.y);
-            ctx.moveTo(currentPoint.x, currentPoint.y);
-        }
-        ctx.stroke();
-		
-    }
-
-    // Draw circles around vertices to facilitate drag and drop
-    function drawVertices (ctx, style, points) {
-        for (var i = 0; i < points.length; i++) {
-            var p = points[i];
-            ctx.lineWidth = style.point.width;
-            ctx.strokeStyle = style.point.color;
-            ctx.fillStyle = style.point.fill;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, style.point.radius, style.point.arc1, style.point.arc2, true);
-            ctx.fill();
-            ctx.stroke();
-        }
-    }
-
-    /**
-     * Start ("main method")
-     */
-
-    // Assign canvas and context variables
-    canvas1 = document.getElementById("canvas1");
-    context1 = canvas1.getContext("2d");
-
-    init();
-
-    /**
-     * Auxiliary functions
-     */
-
-
+    // Explanation / Justification
+    var explanationHTML = `
+      <p>
+        <strong>Rolling Circle (Hypocycloid) with R=3r:</strong><br>
+        We let the larger circle have radius R=3 and the smaller (rolling) circle radius r=1.
+        As the smaller circle rolls inside the larger, a point on the smaller circle's rim
+        traces out a deltoid described by:
+      </p>
+      <p style="margin-left: 20px;">
+        x(t) = 2 cos(t) + cos(2t), &nbsp;
+        y(t) = 2 sin(t) - sin(2t).
+      </p>
+      <p>
+        These equations come from the standard hypocycloid formula
+        \\( x(t) = (R - r) \\cos t + r \\cos\\bigl(\\tfrac{R - r}{r}t\\bigr) \\)
+        and
+        \\( y(t) = (R - r) \\sin t - r \\sin\\bigl(\\tfrac{R - r}{r}t\\bigr) \\),
+        with R=3r and r=1.
+      </p>
+    `;
+    document.getElementById("explanation").innerHTML = explanationHTML;
+  }
 </script>
+
 </body>
 </html>
