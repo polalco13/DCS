@@ -2,135 +2,374 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>DCS - 2.3 Rolling Circle (Hypocycloid) Example</title>
-  <!-- Math.js library (optional if you need advanced math) -->
+  <title>Visualización de la parametrización de una hipocicloide</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .canvas-container {
+      position: relative;
+      width: 700px;
+      height: 500px;
+      margin: 0 auto;
+      border: 1px solid #d3d3d3;
+    }
+    
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    
+    .controls {
+      text-align: center;
+      margin: 20px 0;
+    }
+    
+    button {
+      padding: 8px 15px;
+      margin: 0 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+    }
+    
+    button:hover {
+      background-color: #45a049;
+    }
+    
+    .slider-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 15px 0;
+    }
+    
+    .slider-container label {
+      margin-right: 10px;
+    }
+    
+    input[type="range"] {
+      width: 300px;
+    }
+    
+    .explanation {
+      margin-top: 30px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+      line-height: 1.5;
+    }
+    
+    .parameter-values {
+      margin: 10px 0;
+      font-family: 'Courier New', monospace;
+      background-color: #f0f0f0;
+      padding: 8px;
+      border-radius: 4px;
+    }
+  </style>
 </head>
 <body>
 
-<h1>DCS - 2.3 Curve Parametrization: Rolling Circle (Hypocycloid)</h1>
+<h1>Visualización de la parametrización de una hipocicloide</h1>
 
-<canvas id="canvas1" width="1000" height="600" style="border:1px solid #d3d3d3;"></canvas>
-<br>
-<button type="button" onclick="drawRollingCurve()">Draw Rolling Curve</button>
-<button type="button" onclick="resetCanvas()">Reset</button>
+<div class="canvas-container">
+  <canvas id="backgroundCanvas" width="700" height="500"></canvas>
+  <canvas id="dynamicCanvas" width="700" height="500"></canvas>
+</div>
 
-<!-- Explanation text will appear here -->
-<div id="explanation" style="margin-top:20px; font-family:Arial, sans-serif; font-size:16px;"></div>
+<div class="parameter-values" id="parameterValues">
+  t = 0, x(t) = 3, y(t) = 0
+</div>
 
-<script type="text/javascript">
+<div class="controls">
+  <div class="slider-container">
+    <label for="speedSlider">Velocidad:</label>
+    <input type="range" id="speedSlider" min="1" max="10" value="5">
+  </div>
+  
+  <button id="playPauseBtn">Iniciar</button>
+  <button id="resetBtn">Reiniciar</button>
+</div>
 
-  var canvas1   = document.getElementById("canvas1");
-  var context1  = canvas1.getContext("2d");
+<div class="explanation">
+  <h3>Estrategia de Solución y Justificación</h3>
+  
+  <p><strong>Estrategia seguida:</strong></p>
+  <p>
+    Para resolver este problema de parametrización, usé el ángulo polar θ del centro del círculo pequeño C 
+    como parámetro, tal como se indica en el enunciado. Mi enfoque consistió en:
+  </p>
+  <ol>
+    <li>Calcular la posición del centro del círculo móvil en función de θ</li>
+    <li>Determinar el ángulo de rotación α como función de θ</li>
+    <li>Utilizar estas expresiones para obtener las coordenadas del punto P</li>
+    <li>Simplificar las ecuaciones paramétricas resultantes</li>
+  </ol>
+  
+  <p><strong>Justificación matemática:</strong></p>
+  <p>
+    Cuando el círculo C (radio r=1) rueda dentro del círculo fijo Cfixed (radio R=3r), el centro de C 
+    se encuentra a una distancia (R-r)=2r del origen, con coordenadas:
+  </p>
+  <p style="margin-left: 20px; font-family: 'Courier New', monospace;">
+    x₀ = (R-r)·cos(θ) = 2r·cos(θ)<br>
+    y₀ = (R-r)·sin(θ) = 2r·sin(θ)
+  </p>
+  
+  <p>
+    Para que el círculo C ruede sin deslizamiento dentro de Cfixed, el ángulo de rotación α del círculo C 
+    debe ser α = -(R/r)·θ = -3θ (el signo negativo indica rotación en sentido contrario).
+  </p>
+  
+  <p>
+    La posición del punto P se determina sumando al centro del círculo móvil, un vector de longitud r 
+    en la dirección dada por θ+α:
+  </p>
+  <p style="margin-left: 20px; font-family: 'Courier New', monospace;">
+    x = x₀ + r·cos(θ+α) = 2r·cos(θ) + r·cos(θ-3θ) = 2r·cos(θ) + r·cos(-2θ) = 2r·cos(θ) + r·cos(2θ)<br>
+    y = y₀ + r·sin(θ+α) = 2r·sin(θ) + r·sin(θ-3θ) = 2r·sin(θ) + r·sin(-2θ) = 2r·sin(θ) - r·sin(2θ)
+  </p>
+  
+  <p>
+    Con r=1 como unidad básica, obtenemos exactamente las ecuaciones implementadas:
+  </p>
+  <p style="margin-left: 20px; font-family: 'Courier New', monospace;">
+    x(θ) = 2cos(θ) + cos(2θ)<br>
+    y(θ) = 2sin(θ) - sin(2θ)
+  </p>
+  
+  <p>
+    Estas ecuaciones corresponden a una hipocicloide de tres cúspides (deltoide), lo que verifica 
+    la corrección de nuestra parametrización para el caso específico donde R = 3r.
+  </p>
+</div>
 
-  // Style settings
-  var style = {
-    curve:  { width: 3, color: "#CC0000" },   // red curve
-    grid:   { width: 1, color: "lightgray" },
-  };
-
-  // Translate the origin to the center of the canvas
-  // (So x=0,y=0 is at the center)
-  context1.translate(canvas1.width/2, canvas1.height/2);
-  // Uncomment the next line if you want the y-axis going upwards:
-  // context1.scale(1, -1);
-
-  /**
-   * Draw the background grid
-   */
-  function drawGrid(ctx, w, h) {
-    var delta = 50; // grid spacing
-    var halfW = w/2, halfH = h/2;
-
-    ctx.beginPath();
-    for (var x = -halfW; x <= halfW; x += delta) {
-      ctx.moveTo(x, -halfH);
-      ctx.lineTo(x, halfH);
+<script>
+  // Get canvas elements
+  const backgroundCanvas = document.getElementById("backgroundCanvas");
+  const bgCtx = backgroundCanvas.getContext("2d");
+  const dynamicCanvas = document.getElementById("dynamicCanvas");
+  const dynCtx = dynamicCanvas.getContext("2d");
+  
+  // Translate to center
+  const centerX = backgroundCanvas.width / 2;
+  const centerY = backgroundCanvas.height / 2;
+  bgCtx.translate(centerX, centerY);
+  dynCtx.translate(centerX, centerY);
+  
+  // Constants
+  const SCALE = 50; // Scale factor to make the curve visible
+  const R = 3;      // Radius of fixed circle
+  const r = 1;      // Radius of rolling circle
+  
+  // Animation variables
+  let t = 0;
+  const tStep = 0.01;
+  let animationId = null;
+  let isPlaying = false;
+  let speed = 5;
+  
+  // Draw fixed elements
+  function drawBackground() {
+    bgCtx.clearRect(-centerX, -centerY, backgroundCanvas.width, backgroundCanvas.height);
+    
+    // Draw grid
+    bgCtx.beginPath();
+    bgCtx.strokeStyle = "lightgray";
+    bgCtx.lineWidth = 0.5;
+    
+    // Vertical lines
+    for (let x = -centerX; x <= centerX; x += 50) {
+      bgCtx.moveTo(x, -centerY);
+      bgCtx.lineTo(x, centerY);
     }
-    for (var y = -halfH; y <= halfH; y += delta) {
-      ctx.moveTo(-halfW, y);
-      ctx.lineTo(halfW, y);
+    
+    // Horizontal lines
+    for (let y = -centerY; y <= centerY; y += 50) {
+      bgCtx.moveTo(-centerX, y);
+      bgCtx.lineTo(centerX, y);
     }
-    ctx.lineWidth = style.grid.width;
-    ctx.strokeStyle = style.grid.color;
-    ctx.stroke();
-
-    // (Optional) Draw the label for the origin
-    ctx.save();
-    ctx.scale(1, -1); // if you have flipped y-axis
-    ctx.fillStyle = "black";
-    ctx.font = "12px Arial";
-    ctx.fillText("(0,0)", 5, -5);
-    ctx.restore();
+    bgCtx.stroke();
+    
+    // Draw axes
+    bgCtx.beginPath();
+    bgCtx.strokeStyle = "black";
+    bgCtx.lineWidth = 1;
+    
+    // x-axis
+    bgCtx.moveTo(-centerX, 0);
+    bgCtx.lineTo(centerX, 0);
+    
+    // y-axis
+    bgCtx.moveTo(0, -centerY);
+    bgCtx.lineTo(0, centerY);
+    bgCtx.stroke();
+    
+    // Draw fixed circle (radius R)
+    bgCtx.beginPath();
+    bgCtx.strokeStyle = "blue";
+    bgCtx.lineWidth = 2;
+    bgCtx.arc(0, 0, R * SCALE, 0, 2 * Math.PI);
+    bgCtx.stroke();
+    
+    // Draw coordinate labels
+    bgCtx.fillStyle = "black";
+    bgCtx.font = "12px Arial";
+    bgCtx.fillText("(0,0)", 5, 15);
+    bgCtx.fillText("x", centerX - 15, 15);
+    bgCtx.fillText("y", 5, -centerY + 15);
   }
-
-  /**
-   * Clear the canvas and redraw the grid
-   */
-  function resetCanvas() {
-    context1.clearRect(-canvas1.width/2, -canvas1.height/2, canvas1.width, canvas1.height);
-    drawGrid(context1, canvas1.width, canvas1.height);
-
-    // Clear any explanation text
-    document.getElementById("explanation").innerHTML = "";
+  
+  // Compute hypocycloid point for parameter t
+  function computePoint(t) {
+    const factor = R - r; // Which is 2 in our case
+    
+    const x = factor * Math.cos(t) + r * Math.cos(factor * t / r);
+    const y = factor * Math.sin(t) - r * Math.sin(factor * t / r);
+    
+    return { x, y };
   }
-
-  // Draw the grid initially
-  resetCanvas();
-
-  /**
-   * Draw the rolling‐circle curve (the deltoid) for R=3, r=1
-   * using the standard hypocycloid parametrization.
-   */
-  function drawRollingCurve() {
-    resetCanvas();
-
-    // We'll treat r=1, R=3 => (R - r) = 2 => factor in cos(2t)
-    // Param: x(t) = 2*cos(t) + cos(2t), y(t) = 2*sin(t) - sin(2t).
-    // We'll scale them by 50 so they're clearly visible.
-
-    context1.save();
-    context1.beginPath();
-    context1.lineWidth = style.curve.width;
-    context1.strokeStyle = style.curve.color;
-
+  
+  // Draw the dynamic elements (rolling circle, trace point, traced curve)
+  function drawDynamic(currentT) {
+    dynCtx.clearRect(-centerX, -centerY, dynamicCanvas.width, dynamicCanvas.height);
+    
+    // Compute point on hypocycloid
+    const point = computePoint(currentT);
+    
+    // Compute center of rolling circle
+    const rollingCenterX = (R - r) * Math.cos(currentT);
+    const rollingCenterY = (R - r) * Math.sin(currentT);
+    
+    // Draw the full traced curve (light red)
+    dynCtx.beginPath();
+    dynCtx.strokeStyle = "rgba(255, 0, 0, 0.3)";
+    dynCtx.lineWidth = 2;
+    
     // Start at t=0
-    var t = 0;
-    var x0 = 2*Math.cos(t) + Math.cos(2*t);
-    var y0 = 2*Math.sin(t) - Math.sin(2*t);
-    context1.moveTo(50*x0, 50*y0);
-
-    // Plot the curve from t=0 to t=2π
-    for (t = 0; t <= 2*Math.PI + 0.01; t += 0.01) {
-      var x = 2*Math.cos(t) + Math.cos(2*t);
-      var y = 2*Math.sin(t) - Math.sin(2*t);
-      context1.lineTo(50*x, 50*y);
+    let startPoint = computePoint(0);
+    dynCtx.moveTo(startPoint.x * SCALE, startPoint.y * SCALE);
+    
+    // Plot the full curve
+    for (let t = 0; t <= 2 * Math.PI; t += 0.01) {
+      let p = computePoint(t);
+      dynCtx.lineTo(p.x * SCALE, p.y * SCALE);
     }
-    context1.stroke();
-    context1.restore();
-
-    // Explanation / Justification
-    var explanationHTML = `
-      <p>
-        <strong>Rolling Circle (Hypocycloid) with R=3r:</strong><br>
-        We let the larger circle have radius R=3 and the smaller (rolling) circle radius r=1.
-        As the smaller circle rolls inside the larger, a point on the smaller circle's rim
-        traces out a deltoid described by:
-      </p>
-      <p style="margin-left: 20px;">
-        x(t) = 2 cos(t) + cos(2t), &nbsp;
-        y(t) = 2 sin(t) - sin(2t).
-      </p>
-      <p>
-        These equations come from the standard hypocycloid formula
-        \\( x(t) = (R - r) \\cos t + r \\cos\\bigl(\\tfrac{R - r}{r}t\\bigr) \\)
-        and
-        \\( y(t) = (R - r) \\sin t - r \\sin\\bigl(\\tfrac{R - r}{r}t\\bigr) \\),
-        with R=3r and r=1.
-      </p>
-    `;
-    document.getElementById("explanation").innerHTML = explanationHTML;
+    dynCtx.stroke();
+    
+    // Draw the traced curve up to current point (bright red)
+    dynCtx.beginPath();
+    dynCtx.strokeStyle = "red";
+    dynCtx.lineWidth = 3;
+    
+    // Start at t=0
+    dynCtx.moveTo(startPoint.x * SCALE, startPoint.y * SCALE);
+    
+    // Plot the curve up to current t
+    for (let t = 0; t <= currentT; t += 0.01) {
+      let p = computePoint(t);
+      dynCtx.lineTo(p.x * SCALE, p.y * SCALE);
+    }
+    dynCtx.stroke();
+    
+    // Draw rolling circle
+    dynCtx.beginPath();
+    dynCtx.strokeStyle = "green";
+    dynCtx.lineWidth = 2;
+    dynCtx.arc(rollingCenterX * SCALE, rollingCenterY * SCALE, r * SCALE, 0, 2 * Math.PI);
+    dynCtx.stroke();
+    
+    // Draw center of rolling circle
+    dynCtx.beginPath();
+    dynCtx.fillStyle = "green";
+    dynCtx.arc(rollingCenterX * SCALE, rollingCenterY * SCALE, 4, 0, 2 * Math.PI);
+    dynCtx.fill();
+    
+    // Draw tracing point
+    dynCtx.beginPath();
+    dynCtx.fillStyle = "red";
+    dynCtx.arc(point.x * SCALE, point.y * SCALE, 6, 0, 2 * Math.PI);
+    dynCtx.fill();
+    
+    // Draw line connecting center to point
+    dynCtx.beginPath();
+    dynCtx.strokeStyle = "green";
+    dynCtx.lineWidth = 1;
+    dynCtx.moveTo(rollingCenterX * SCALE, rollingCenterY * SCALE);
+    dynCtx.lineTo(point.x * SCALE, point.y * SCALE);
+    dynCtx.stroke();
+    
+    // Update parameter values display
+    document.getElementById("parameterValues").innerHTML = 
+      `t = ${currentT.toFixed(2)}, x(t) = ${point.x.toFixed(2)}, y(t) = ${point.y.toFixed(2)}`;
   }
+  
+  // Animation function
+  function animate() {
+    // Increment t based on speed
+    t += tStep * speed;
+    
+    // Reset after full cycle
+    if (t > 2 * Math.PI) {
+      t = 0;
+    }
+    
+    // Draw the current state
+    drawDynamic(t);
+    
+    // Continue animation if playing
+    if (isPlaying) {
+      animationId = requestAnimationFrame(animate);
+    }
+  }
+  
+  // Initialize controls
+  const playPauseBtn = document.getElementById("playPauseBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const speedSlider = document.getElementById("speedSlider");
+  
+  playPauseBtn.addEventListener("click", function() {
+    isPlaying = !isPlaying;
+    
+    if (isPlaying) {
+      playPauseBtn.textContent = "Pausar";
+      animate();
+    } else {
+      playPauseBtn.textContent = "Iniciar";
+      cancelAnimationFrame(animationId);
+    }
+  });
+  
+  resetBtn.addEventListener("click", function() {
+    t = 0;
+    isPlaying = false;
+    playPauseBtn.textContent = "Iniciar";
+    cancelAnimationFrame(animationId);
+    drawDynamic(t);
+  });
+  
+  speedSlider.addEventListener("input", function() {
+    speed = parseInt(this.value);
+  });
+  
+  // Initial setup
+  drawBackground();
+  drawDynamic(t);
 </script>
 
 </body>
