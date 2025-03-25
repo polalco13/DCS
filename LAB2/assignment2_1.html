@@ -118,15 +118,21 @@
         const points = [];
         const numPoints = 200;
 
+        //all points that will be used to create the curve
         for (let i = 0; i <= numPoints; i++) {
+
+            // t is the parametric angle for the entire curve trajectory
             const t = (i / numPoints) * Math.PI * 2 * n;
             let x, y, z;
 
             if (curveType === 'elliptical') {
                 x = a * Math.cos(t);
                 y = b * Math.sin(t);
+                // Rate of elevation: h/(2πn) units per radian - this determines how much the helix rises per turn
                 z = (h / (2 * Math.PI * n)) * t;
             } else { // spiral
+                //s = spiral factor that controls the growth rate of the spiral radius
+                //Difference is now the radius is linearly increasing
                 const radius = (s * t / (2*Math.PI)); // Linearly increasing radius
                 x = radius * Math.cos(t);
                 y = radius * Math.sin(t);
