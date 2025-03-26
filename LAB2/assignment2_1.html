@@ -22,6 +22,10 @@
       width: 150px;
       margin-right:5px;
     }
+    .disabled-control {
+      opacity: 0.5;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -35,24 +39,22 @@
         </select>
     </label>
 
-    <label>
+    <label id="majorRadiusControl">
         Major Radius (a): <input type="range" id="majorRadius" min="1" max="20" value="5" step="0.1"> <span id="majorRadiusValue">5</span>
     </label>
-    <label>
+    <label id="minorRadiusControl">
         Minor Radius (b): <input type="range" id="minorRadius" min="1" max="20" value="2" step="0.1"> <span id="minorRadiusValue">2</span>
     </label>
-    <label>
+    <label id="heightControl">
         Height (h): <input type="range" id="height" min="1" max="50" value="10" step="0.1"> <span id="heightValue">10</span>
     </label>
-    <label>
+    <label id="turnsControl">
         Turns (n): <input type="range" id="turns" min="1" max="10" value="3" step="0.1"> <span id="turnsValue">3</span>
     </label>
-     <label>
+    <label id="spiralFactorControl">
        Spiral Factor (s): <input type="range" id="spiralFactor" min="0.1" max="2" value="0.5" step="0.01">  <span id="spiralFactorValue">0.5</span>
     </label>
 </div>
-
-
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.rawgit.com/mrdoob/three.js/r128/examples/js/controls/OrbitControls.js"></script>
@@ -76,7 +78,6 @@
         controls.dampingFactor = 0.25;
         controls.enableZoom = true;
 
-
         // Add grid helper
         const gridHelper = new THREE.GridHelper( 100, 20 );
         gridHelper.colorGrid = 0x888888;
@@ -95,9 +96,28 @@
         directionalLight.position.set(1, 1, 1);
         scene.add(directionalLight);
 
-
+        // Set up initial control visibility
+        updateControlsVisibility();
+        
         updateCurve(); // Initial curve draw
         animate();
+    }
+
+    function updateControlsVisibility() {
+        const curveType = document.getElementById('curveType').value;
+        
+        // For elliptical helix
+        if (curveType === 'elliptical') {
+            document.getElementById('spiralFactorControl').classList.add('disabled-control');
+            document.getElementById('majorRadiusControl').classList.remove('disabled-control');
+            document.getElementById('minorRadiusControl').classList.remove('disabled-control');
+        } 
+        // For spiral helix
+        else {
+            document.getElementById('spiralFactorControl').classList.remove('disabled-control');
+            document.getElementById('majorRadiusControl').classList.add('disabled-control');
+            document.getElementById('minorRadiusControl').classList.add('disabled-control');
+        }
     }
 
     function updateCurve() {
@@ -156,8 +176,6 @@
         scene.add(line);
     }
 
-
-
     function animate() {
         requestAnimationFrame(animate);
         controls.update();
@@ -165,14 +183,15 @@
     }
 
     // Event listeners for control changes
-    document.getElementById('curveType').addEventListener('change', updateCurve);
+    document.getElementById('curveType').addEventListener('change', function() {
+        updateControlsVisibility();
+        updateCurve();
+    });
     document.getElementById('majorRadius').addEventListener('input', updateCurve);
     document.getElementById('minorRadius').addEventListener('input', updateCurve);
     document.getElementById('height').addEventListener('input', updateCurve);
     document.getElementById('turns').addEventListener('input', updateCurve);
     document.getElementById('spiralFactor').addEventListener('input', updateCurve);
-
-
 
     // Handle window resize
     window.addEventListener('resize', () => {
@@ -182,8 +201,6 @@
     }, false);
 
     init();
-
-
 </script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Visualización de la parametrización de una hipocicloide</title>
+  <title>Hypocycloid Parametrization Visualization</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
   <style>
     body {
@@ -85,7 +85,7 @@
 </head>
 <body>
 
-<h1>Visualización de la parametrización de una hipocicloide</h1>
+<h1>Parametrization Visualization</h1>
 
 <div class="canvas-container">
   <canvas id="backgroundCanvas" width="700" height="500"></canvas>
@@ -98,65 +98,97 @@
 
 <div class="controls">
   <div class="slider-container">
-    <label for="speedSlider">Velocidad:</label>
+    <label for="speedSlider">Speed:</label>
     <input type="range" id="speedSlider" min="1" max="10" value="5">
   </div>
   
-  <button id="playPauseBtn">Iniciar</button>
-  <button id="resetBtn">Reiniciar</button>
+  <button id="playPauseBtn">Start</button>
+  <button id="resetBtn">Reset</button>
 </div>
 
 <div class="explanation">
-  <h3>Estrategia de Solución y Justificación</h3>
-  
-  <p><strong>Estrategia seguida:</strong></p>
-  <p>
-    Para resolver este problema de parametrización, usé el ángulo polar θ del centro del círculo pequeño C 
-    como parámetro, tal como se indica en el enunciado. Mi enfoque consistió en:
-  </p>
-  <ol>
-    <li>Calcular la posición del centro del círculo móvil en función de θ</li>
-    <li>Determinar el ángulo de rotación α como función de θ</li>
-    <li>Utilizar estas expresiones para obtener las coordenadas del punto P</li>
-    <li>Simplificar las ecuaciones paramétricas resultantes</li>
-  </ol>
-  
-  <p><strong>Justificación matemática:</strong></p>
-  <p>
-    Cuando el círculo C (radio r=1) rueda dentro del círculo fijo Cfixed (radio R=3r), el centro de C 
-    se encuentra a una distancia (R-r)=2r del origen, con coordenadas:
-  </p>
-  <p style="margin-left: 20px; font-family: 'Courier New', monospace;">
-    x₀ = (R-r)·cos(θ) = 2r·cos(θ)<br>
-    y₀ = (R-r)·sin(θ) = 2r·sin(θ)
-  </p>
-  
-  <p>
-    Para que el círculo C ruede sin deslizamiento dentro de Cfixed, el ángulo de rotación α del círculo C 
-    debe ser α = -(R/r)·θ = -3θ (el signo negativo indica rotación en sentido contrario).
-  </p>
-  
-  <p>
-    La posición del punto P se determina sumando al centro del círculo móvil, un vector de longitud r 
-    en la dirección dada por θ+α:
-  </p>
-  <p style="margin-left: 20px; font-family: 'Courier New', monospace;">
-    x = x₀ + r·cos(θ+α) = 2r·cos(θ) + r·cos(θ-3θ) = 2r·cos(θ) + r·cos(-2θ) = 2r·cos(θ) + r·cos(2θ)<br>
-    y = y₀ + r·sin(θ+α) = 2r·sin(θ) + r·sin(θ-3θ) = 2r·sin(θ) + r·sin(-2θ) = 2r·sin(θ) - r·sin(2θ)
-  </p>
-  
-  <p>
-    Con r=1 como unidad básica, obtenemos exactamente las ecuaciones implementadas:
-  </p>
-  <p style="margin-left: 20px; font-family: 'Courier New', monospace;">
-    x(θ) = 2cos(θ) + cos(2θ)<br>
-    y(θ) = 2sin(θ) - sin(2θ)
-  </p>
-  
-  <p>
-    Estas ecuaciones corresponden a una hipocicloide de tres cúspides (deltoide), lo que verifica 
-    la corrección de nuestra parametrización para el caso específico donde R = 3r.
-  </p>
+  <title>Solution Strategy and Mathematical Justification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h2 {
+            color: #222;
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 5px;
+        }
+        ol {
+            margin-left: 20px;
+        }
+        .equation {
+            background-color: #eef;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: "Courier New", monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Solution Strategy and Mathematical Justification</h2>
+
+<h3>Approach:</h3>
+<p>
+To solve this parametrization problem, I used the polar angle <strong>θ</strong> of the center of the smaller circle <strong>C</strong> as the parameter, as suggested in the problem statement. Specifically, I followed these steps:
+</p>
+<ol>
+    <li><strong>Calculated</strong> the coordinates of the moving circle’s center as functions of <strong>θ</strong>.</li>
+    <li><strong>Determined</strong> the rotation angle <strong>α</strong> of the small circle as a function of <strong>θ</strong>.</li>
+    <li><strong>Combined</strong> these results to find the coordinates of the tracing point <strong>P</strong>.</li>
+    <li><strong>Simplified</strong> the resulting parametric equations.</li>
+</ol>
+
+<h3>Mathematical Justification:</h3>
+<p>
+When the smaller circle <strong>C</strong> with radius <strong>r = 1</strong> rolls inside the fixed circle <strong>C<sub>fixed</sub></strong> with radius <strong>R = 3r = 3</strong>, the distance between their centers remains constant at <strong>R - r = 2</strong>. Thus, the coordinates of the smaller circle’s center become:
+</p>
+<div class="equation">
+    x₀ = (R - r) cos(θ) = 2 cos(θ),<br>
+    y₀ = (R - r) sin(θ) = 2 sin(θ)
+</div>
+
+<p>
+For the smaller circle <strong>C</strong> to roll without slipping inside <strong>C<sub>fixed</sub></strong>, the rotation angle <strong>α</strong> must satisfy:
+</p>
+<div class="equation">
+    α = -(R/r) θ = -3θ
+</div>
+
+<p>(The negative sign indicates rotation in the opposite direction to the movement around the fixed circle.)</p>
+
+<p>
+The coordinates of point <strong>P</strong> are then found by adding a vector of length <strong>r = 1</strong>, oriented by the angle <strong>θ + α</strong>, to the center coordinates of the smaller circle:
+</p>
+<div class="equation">
+    x = x₀ + r cos(θ + α) = 2 cos(θ) + cos(θ - 3θ) = 2 cos(θ) + cos(-2θ) = 2 cos(θ) + cos(2θ)
+</div>
+<div class="equation">
+    y = y₀ + r sin(θ + α) = 2 sin(θ) + sin(θ - 3θ) = 2 sin(θ) + sin(-2θ) = 2 sin(θ) - sin(2θ)
+</div>
+
+<p>
+With <strong>r = 1</strong>, these equations become precisely the simplified parametric equations implemented in this solution:
+</p>
+<div class="equation">
+    x(θ) = 2 cos(θ) + cos(2θ),<br>
+    y(θ) = 2 sin(θ) - sin(2θ)
+</div>
+
+<p>
+These results verify the correctness of my parametrization for the given conditions.
+</p>
+
+</body>
 </div>
 
 <script>
@@ -347,10 +379,10 @@
     isPlaying = !isPlaying;
     
     if (isPlaying) {
-      playPauseBtn.textContent = "Pausar";
+      playPauseBtn.textContent = "Pause";
       animate();
     } else {
-      playPauseBtn.textContent = "Iniciar";
+      playPauseBtn.textContent = "Start";
       cancelAnimationFrame(animationId);
     }
   });
@@ -358,7 +390,7 @@
   resetBtn.addEventListener("click", function() {
     t = 0;
     isPlaying = false;
-    playPauseBtn.textContent = "Iniciar";
+    playPauseBtn.textContent = "Start";
     cancelAnimationFrame(animationId);
     drawDynamic(t);
   });
