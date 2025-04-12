@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>DCS - 3.3 - Cubic Hermite Interpolation</title>
+
+    <!--- Math.js library, for matrix manipulation, and many other things--->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
+    <style>
+        .controls {
+            margin: 15px 0;
+            font-family: Arial, sans-serif;
+        }
+        .explanation {
+            margin-top: 20px;
+            max-width: 800px;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .solution {
+            background-color: #f0f0f0;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        .highlight {
+            color: #b00;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>DCS - 3.3. Cubic Hermite Interpolation</h1>
+
+<div class="controls">
+    <button id="reset">Reset to Default</button>
+    <button id="problem4">Set to Problem 4 Configuration</button>
+    <button id="solution">Apply Solution (4× vectors)</button>
+    <button id="toggle-midpoint">Toggle Midpoint Marker</button>
+</div>
+
+<canvas id="canvas1" height="600" width="800" class="bezier" style="border:1px solid #d3d3d3;"></canvas>
+
+<div class="explanation">
+    <h2>Cubic Hermite Interpolation</h2>
+    <p>
+        Cubic Hermite interpolation creates a smooth curve between two points P₀ and P₁, while also respecting 
+        tangent vectors v₀ and v₁ at those points.
+    </p>
+    
+    <p>
+        <strong>Controls:</strong>
+    </p>
+    <ul>
+        <li><strong>Drag the red points</strong> (P₀ and P₁) to move them</li>
+        <li><strong>Drag the blue points</strong> to change the tangent vectors</li>
+        <li>Use the buttons above to reset, configure for Problem 4, or apply the solution</li>
+    </ul>
+
+    <div class="solution">
+        <h3>Problem 4 Solution</h3>
+        <p>Given P₀ = (200, 200), P₁ = (400, 300), v₀ = (100, 100), v₁ = (100, 0):</p>
+        
+        <h4>1. Compute the position of the curve at t = 1/2</h4>
+        <p>
+            Using the Cubic Hermite formula: P(t) = h₀₀(t)P₀ + h₁₀(t)v₀ + h₀₁(t)P₁ + h₁₁(t)v₁
+        </p>
+        <p>
+            Where:
+            <br>h₀₀(t) = 2t³ - 3t² + 1
+            <br>h₁₀(t) = t³ - 2t² + t
+            <br>h₀₁(t) = -2t³ + 3t²
+            <br>h₁₁(t) = t³ - t²
+        </p>
+        <p>
+            At t = 1/2:
+            <br>h₀₀(1/2) = 0.5
+            <br>h₁₀(1/2) = 0.125
+            <br>h₀₁(1/2) = 0.5
+            <br>h₁₁(1/2) = -0.125
+        </p>
+        <p>
+            P(1/2) = 0.5 × (200, 200) + 0.125 × (100, 100) + 0.5 × (400, 300) + (-0.125) × (100, 0)
+            <br>P(1/2) = (100, 100) + (12.5, 12.5) + (200, 150) + (-12.5, 0)
+            <br>P(1/2) = <span class="highlight">(300, 262.5)</span>
+        </p>
+        
+        <h4>2. How to modify tangent vectors to pass through (300, 300) at t = 1/2</h4>
+        <p>
+            We need to scale v₀ and v₁ while keeping their directions the same. 
+            Let's call the scaling factors α and β.
+        </p>
+        <p>
+            For the curve to pass through (300, 300) at t = 1/2, we need:
+            <br>0.5 × (200, 200) + 0.125 × α(100, 100) + 0.5 × (400, 300) + (-0.125) × β(100, 0) = (300, 300)
+            <br>(100, 100) + (12.5α, 12.5α) + (200, 150) + (-12.5β, 0) = (300, 300)
+            <br>(300 + 12.5α - 12.5β, 250 + 12.5α) = (300, 300)
+        </p>
+        <p>
+            From the y-coordinate: 250 + 12.5α = 300
+            <br>12.5α = 50
+            <br>α = 4
+        </p>
+        <p>
+            From the x-coordinate: 300 + 12.5(4) - 12.5β = 300
+            <br>50 - 12.5β = 0
+            <br>β = 4
+        </p>
+        <p>
+            Therefore, we need to scale both tangent vectors by a factor of <span class="highlight">4</span>:
+            <br>v₀' = 4 × (100, 100) = <span class="highlight">(400, 400)</span>
+            <br>v₁' = 4 × (100, 0) = <span class="highlight">(400, 0)</span>
+        </p>
+    </div>
+</div>
+
+<script type="text/javascript">
+    var canvas1, context1, style;
+    var points = []; // Control points: P0, P1, P0+v0, P1+v1
+    var showMidpoint = true;
+
+    function init() {
+        // Set default points for a clean start
+        resetPoints();
+
+        // Set up styles
+        style = {
+            curve: { width: 6, color: "#333" },
+            polyline: { width: 1, color: "#666", dash: [5, 5] },
+            endPoint: { radius: 10, width: 2, color: "#900", fill: "rgba(200,150,150,0.5)", arc1: 0, arc2: 2 * Math.PI },
+            tangentPoint: { radius: 8, width: 2, color: "#009", fill: "rgba(150,150,200,0.5)", arc1: 0, arc2: 2 * Math.PI },
+            midPoint: { radius: 6, width: 2, color: "#090", fill: "rgba(150,200,150,0.5)", arc1: 0, arc2: 2 * Math.PI }
+        };
+
+        // Set line style defaults
+        context1.lineCap = "round";
+        context1.lineJoin = "round";
+
+        // Set up event handlers
+        canvas1.onmousedown = dragStart;
+        canvas1.onmousemove = dragging;
+        canvas1.onmouseup = canvas1.onmouseout = dragEnd;
+
+        // Set up button handlers
+        document.getElementById('reset').addEventListener('click', function() {
+            resetPoints();
+            drawCanvas();
+        });
+
+        document.getElementById('problem4').addEventListener('click', function() {
+            setProblem4();
+            drawCanvas();
+        });
+
+        document.getElementById('solution').addEventListener('click', function() {
+            applySolution();
+            drawCanvas();
+        });
+
+        document.getElementById('toggle-midpoint').addEventListener('click', function() {
+            showMidpoint = !showMidpoint;
+            drawCanvas();
+        });
+
+        // Initial draw
+        drawCanvas();
+    }
+
+    // Reset points to default positions
+    function resetPoints() {
+        points = [
+            { x: 200, y: 300, type: 'end' },       // P0
+            { x: 500, y: 300, type: 'end' },       // P1
+            { x: 300, y: 200, type: 'tangent' },   // P0 + v0 (tangent control point)
+            { x: 600, y: 200, type: 'tangent' }    // P1 + v1 (tangent control point)
+        ];
+    }
+
+    // Set points to Problem 4 configuration
+    function setProblem4() {
+        points = [
+            { x: 200, y: 200, type: 'end' },       // P0
+            { x: 400, y: 300, type: 'end' },       // P1
+            { x: 300, y: 300, type: 'tangent' },   // P0 + v0
+            { x: 500, y: 300, type: 'tangent' }    // P1 + v1
+        ];
+    }
+
+    // Apply the solution (4x vectors)
+    function applySolution() {
+        // Make sure we're in Problem 4 configuration first
+        setProblem4();
+        
+        // Get the current tangent vectors
+        var v0 = { x: points[2].x - points[0].x, y: points[2].y - points[0].y };
+        var v1 = { x: points[3].x - points[1].x, y: points[3].y - points[1].y };
+        
+        // Scale them by 4
+        v0 = { x: v0.x * 4, y: v0.y * 4 };
+        v1 = { x: v1.x * 4, y: v1.y * 4 };
+        
+        // Update tangent control points
+        points[2].x = points[0].x + v0.x;
+        points[2].y = points[0].y + v0.y;
+        points[3].x = points[1].x + v1.x;
+        points[3].y = points[1].y + v1.y;
+    }
+
+    // Draw canvas
+    function drawCanvas() {
+        // Clear everything
+        context1.clearRect(0, 0, canvas1.width, canvas1.height);
+
+        // Background grid
+        drawGrid(context1, canvas1.width, canvas1.height);
+
+        // Extract points and tangent vectors
+        var P0 = { x: points[0].x, y: points[0].y };
+        var P1 = { x: points[1].x, y: points[1].y };
+        var v0 = { x: points[2].x - points[0].x, y: points[2].y - points[0].y };
+        var v1 = { x: points[3].x - points[1].x, y: points[3].y - points[1].y };
+
+        // Draw tangent vector lines
+        drawTangentVectors(context1, P0, P1, v0, v1);
+
+        // Draw Hermite curve
+        drawHermiteCurve(context1, style, P0, P1, v0, v1);
+
+        // Draw midpoint if enabled
+        if (showMidpoint) {
+            var midpoint = evaluateHermite(0.5, P0, P1, v0, v1);
+            drawPoint(context1, midpoint, style.midPoint);
+            
+            // Display coordinates
+            context1.fillStyle = 'green';
+            context1.font = '14px Arial';
+            context1.fillText(`t=0.5: (${Math.round(midpoint.x)}, ${Math.round(midpoint.y)})`, midpoint.x + 15, midpoint.y);
+        }
+
+        // Draw control points
+        drawControlPoints(context1, style, points);
+        
+        // Display tangent vector values
+        displayVectorInfo(context1, v0, v1);
+    }
+
+    // Draw a background grid
+    function drawGrid(ctx, bw, bh) {
+        var delta = 50; // grid cell size
+
+        ctx.beginPath();
+        
+        // Vertical grid lines
+        for (var x = 0; x <= bw; x += delta) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, bh);
+        }
+
+        // Horizontal grid lines
+        for (var y = 0; y <= bh; y += delta) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(bw, y);
+        }
+
+        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = "lightgray";
+        ctx.stroke();
+
+        ctx.fillStyle = "black";
+        ctx.font = "12px Arial";
+        ctx.fillText("(0,0)", 2, 12);
+    }
+
+    // Draw tangent vector lines
+    function drawTangentVectors(ctx, P0, P1, v0, v1) {
+        ctx.beginPath();
+        
+        // Line from P0 to P0+v0
+        ctx.moveTo(P0.x, P0.y);
+        ctx.lineTo(P0.x + v0.x, P0.y + v0.y);
+        
+        // Line from P1 to P1+v1
+        ctx.moveTo(P1.x, P1.y);
+        ctx.lineTo(P1.x + v1.x, P1.y + v1.y);
+        
+        ctx.lineWidth = style.polyline.width;
+        ctx.strokeStyle = style.polyline.color;
+        
+        // Set dashed line
+        ctx.setLineDash(style.polyline.dash);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Evaluate the Hermite polynomial at parameter t
+    function evaluateHermite(t, P0, P1, v0, v1) {
+        // Hermite basis functions
+        var h00 = 2*t*t*t - 3*t*t + 1;
+        var h10 = t*t*t - 2*t*t + t;
+        var h01 = -2*t*t*t + 3*t*t;
+        var h11 = t*t*t - t*t;
+        
+        // Calculate point
+        return {
+            x: h00 * P0.x + h10 * v0.x + h01 * P1.x + h11 * v1.x,
+            y: h00 * P0.y + h10 * v0.y + h01 * P1.y + h11 * v1.y
+        };
+    }
+
+    // Draw the Hermite curve
+    function drawHermiteCurve(ctx, style, P0, P1, v0, v1) {
+        ctx.beginPath();
+        
+        var numSegments = 100;
+        var firstPoint = evaluateHermite(0, P0, P1, v0, v1);
+        
+        ctx.moveTo(firstPoint.x, firstPoint.y);
+        
+        for (var i = 1; i <= numSegments; i++) {
+            var t = i / numSegments;
+            var point = evaluateHermite(t, P0, P1, v0, v1);
+            ctx.lineTo(point.x, point.y);
+        }
+        
+        ctx.lineWidth = style.curve.width;
+        ctx.strokeStyle = style.curve.color;
+        ctx.stroke();
+    }
+
+    // Draw a single point
+    function drawPoint(ctx, point, style) {
+        ctx.lineWidth = style.width;
+        ctx.strokeStyle = style.color;
+        ctx.fillStyle = style.fill;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, style.radius, style.arc1, style.arc2, true);
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    // Draw control points
+    function drawControlPoints(ctx, style, points) {
+        for (var i = 0; i < points.length; i++) {
+            var p = points[i];
+            var pointStyle = (i < 2) ? style.endPoint : style.tangentPoint;
+            
+            drawPoint(ctx, p, pointStyle);
+            
+            // Label the points
+            ctx.fillStyle = "black";
+            ctx.font = "14px Arial";
+            
+            if (i === 0) {
+                ctx.fillText("P₀", p.x - 25, p.y - 10);
+            } else if (i === 1) {
+                ctx.fillText("P₁", p.x + 15, p.y - 10);
+            } else if (i === 2) {
+                ctx.fillText("P₀+v₀", p.x + 10, p.y - 10);
+            } else if (i === 3) {
+                ctx.fillText("P₁+v₁", p.x + 10, p.y - 10);
+            }
+        }
+    }
+
+    // Display vector information
+    function displayVectorInfo(ctx, v0, v1) {
+        ctx.fillStyle = "black";
+        ctx.font = "14px Arial";
+        
+        ctx.fillText(`P₀ = (${points[0].x}, ${points[0].y})`, 10, 25);
+        ctx.fillText(`P₁ = (${points[1].x}, ${points[1].y})`, 10, 45);
+        ctx.fillText(`v₀ = (${Math.round(v0.x)}, ${Math.round(v0.y)})`, 10, 65);
+        ctx.fillText(`v₁ = (${Math.round(v1.x)}, ${Math.round(v1.y)})`, 10, 85);
+    }
+
+    // Dragging functionality
+    var drag = null;
+    var draggedPoint;
+
+    // Start dragging
+    function dragStart(e) {
+        e = mousePos(e);
+        var dx, dy;
+        
+        for (var i = 0; i < points.length; i++) {
+            var p = points[i];
+            dx = p.x - e.x;
+            dy = p.y - e.y;
+            
+            if ((dx * dx) + (dy * dy) < (p.type === 'end' ? style.endPoint.radius : style.tangentPoint.radius) * (p.type === 'end' ? style.endPoint.radius : style.tangentPoint.radius)) {
+                drag = i;
+                draggedPoint = e;
+                canvas1.style.cursor = "move";
+                return;
+            }
+        }
+    }
+
+    // Dragging
+    function dragging(e) {
+        if (drag !== null) {
+            e = mousePos(e);
+            points[drag].x += e.x - draggedPoint.x;
+            points[drag].y += e.y - draggedPoint.y;
+            draggedPoint = e;
+            drawCanvas();
+        }
+    }
+
+    // End dragging
+    function dragEnd(e) {
+        drag = null;
+        canvas1.style.cursor = "default";
+        drawCanvas();
+    }
+
+    // Get mouse position
+    function mousePos(event) {
+        event = (event ? event : window.event);
+        return {
+            x: event.pageX - canvas1.offsetLeft,
+            y: event.pageY - canvas1.offsetTop
+        };
+    }
+
+    // Assign canvas and context variables
+    canvas1 = document.getElementById("canvas1");
+    context1 = canvas1.getContext("2d");
+
+    init();
+</script>
+</body>
+</html>

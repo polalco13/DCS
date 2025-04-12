@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>DCS - 3.1 - Cubic Lagrange Interpolation</title>
+
+    <!--- Math.js library, for matrix manipulation, and many other things--->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
+    <style>
+        .controls {
+            margin: 10px 0;
+        }
+        .explanation {
+            margin-top: 20px;
+            max-width: 800px;
+        }
+        .math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+        .description {
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>DCS - 3.1. Cubic Lagrange Interpolation</h1>
+
+<div class="description">
+    <p>This interactive application demonstrates cubic Lagrange interpolation through 4 control points. You can:</p>
+    <ul>
+        <li><strong>Drag the red points</strong> to change the shape of the curve</li>
+        <li><strong>Switch between parameterization methods</strong> using the radio buttons below</li>
+    </ul>
+</div>
+
+<div class="controls">
+    <label>
+        <input type="radio" name="paramType" value="uniform" checked> 1. Uniform parameter values
+    </label>
+    <label>
+        <input type="radio" name="paramType" value="nonuniform"> 2. Non-uniform parameter values (distance-based)
+    </label>
+</div>
+
+<canvas id="canvas1" height="600" width="800" class="bezier" style="border:1px solid #d3d3d3;"></canvas>
+<br>
+
+<div class="explanation">
+    <h2>Explanation of Cubic Lagrange Interpolation</h2>
+    
+    <h3>Mathematical Foundation</h3>
+    <p>
+        Lagrange interpolation is a method for finding a polynomial that passes through a given set of points. 
+        For n points, we can construct a polynomial of degree n-1 that passes through all these points.
+    </p>
+    <p>
+        For our case with 4 points (P₀, P₁, P₂, P₃), we construct a cubic (degree 3) polynomial.
+    </p>
+    
+    <h3>Lagrange Basis Polynomials</h3>
+    <p>
+        For 4 points with parameter values t₀, t₁, t₂, t₃, the Lagrange basis polynomials are:
+    </p>
+    <pre class="math">
+L₀(t) = ((t-t₁)(t-t₂)(t-t₃))/((t₀-t₁)(t₀-t₂)(t₀-t₃))
+L₁(t) = ((t-t₀)(t-t₂)(t-t₃))/((t₁-t₀)(t₁-t₂)(t₁-t₃))
+L₂(t) = ((t-t₀)(t-t₁)(t-t₃))/((t₂-t₀)(t₂-t₁)(t₂-t₃))
+L₃(t) = ((t-t₀)(t-t₁)(t-t₂))/((t₃-t₀)(t₃-t₁)(t₃-t₂))
+    </pre>
+    
+    <p>
+        The Lagrange polynomial is then: P(t) = L₀(t)P₀ + L₁(t)P₁ + L₂(t)P₂ + L₃(t)P₃
+    </p>
+    
+    <h3>Parameterization Methods</h3>
+    <p>
+        <strong>1. Uniform parameter values:</strong> The parameter values are evenly spaced between 0 and 1:
+    </p>
+    <pre class="math">
+t₀ = 0, t₁ = 1/3, t₂ = 2/3, t₃ = 1
+    </pre>
+    
+    <p>
+        <strong>2. Non-uniform parameter values (distance-based):</strong> The parameter values are based on the distances
+        between consecutive points:
+    </p>
+    <pre class="math">
+t₀ = 0
+t₁ = d₀₁/(d₀₁+d₁₂+d₂₃)
+t₂ = (d₀₁+d₁₂)/(d₀₁+d₁₂+d₂₃)
+t₃ = 1
+    </pre>
+    <p>
+        Where d<sub>ij</sub> is the Euclidean distance between points P<sub>i</sub> and P<sub>j</sub>.
+    </p>
+    
+    <h3>Visual Comparison</h3>
+    <p>
+        <strong>Observe the difference:</strong> With uniform parameterization, the curve may bunch up or stretch out unevenly.
+        With non-uniform parameterization, the curve distribution often appears more balanced and natural, especially when points
+        are unevenly spaced.
+    </p>
+</div>
+
+<script type="text/javascript">
+    /*
+    * Part of this code is based on:
+        * http://blogs.sitepoint.com/html5-canvas-draw-quadratic-curves/
+        * http://blogs.sitepoint.com/html5-canvas-draw-bezier-curves/
+    */
+
+    var canvas1, context1, points, style, drag = null, draggedPoint;
+    var paramType = 'uniform'; // Default parameter type
+
+    // Initialize 4 points for cubic interpolation
+    points = [{ x:100, y:250 },{ x:250, y:100 },{ x:400, y:400 }, { x:650, y:200 }];
+
+    // Set up radio button event listeners
+    document.querySelectorAll('input[name="paramType"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            paramType = this.value;
+            drawCanvas();
+        });
+    });
+
+    function init() {
+        // default styles
+        style = {
+            curve:  { width: 6, color: "#333" },
+            polyline: { width: 1, color: "#C00" },
+            point: { radius: 10, width: 2, color: "#900", fill: "rgba(200,200,200,0.5)", arc1: 0, arc2: 2 * Math.PI }
+        }
+
+        // line style defaults
+        context1.lineCap = "round";
+        context1.lineJoin = "round";
+
+        // event handlers (only canvas1)
+        canvas1.onmousedown = dragStart;
+        canvas1.onmousemove = dragging;
+        canvas1.onmouseup = canvas1.onmouseout = dragEnd;
+
+        drawCanvas();
+    }
+
+    // Calculate uniform parameter values
+    function calculateUniformParams(numPoints) {
+        var params = [];
+        for (var i = 0; i < numPoints; i++) {
+            params.push(i / (numPoints - 1));
+        }
+        return params;
+    }
+
+    // Calculate non-uniform parameter values based on distances
+    function calculateNonUniformParams(points) {
+        var params = [0];  // First parameter is always 0
+        var totalDistance = 0;
+        
+        // Calculate the total distance of the polyline
+        for (var i = 1; i < points.length; i++) {
+            totalDistance += Math.sqrt(
+                Math.pow(points[i].x - points[i-1].x, 2) + 
+                Math.pow(points[i].y - points[i-1].y, 2)
+            );
+        }
+        
+        // Calculate parameters based on the distance
+        var accumulatedDistance = 0;
+        for (var i = 1; i < points.length - 1; i++) {
+            accumulatedDistance += Math.sqrt(
+                Math.pow(points[i].x - points[i-1].x, 2) + 
+                Math.pow(points[i].y - points[i-1].y, 2)
+            );
+            params.push(accumulatedDistance / totalDistance);
+        }
+        
+        params.push(1);  // Last parameter is always 1
+        return params;
+    }
+
+    // Calculate Lagrange basis polynomial value for index i at parameter t
+    function lagrangeBasis(i, t, params) {
+        var result = 1;
+        for (var j = 0; j < params.length; j++) {
+            if (j !== i) {
+                result *= (t - params[j]) / (params[i] - params[j]);
+            }
+        }
+        return result;
+    }
+
+    // Evaluate the Lagrange polynomial at parameter t
+    function evaluateLagrangePolynomial(t, points, params) {
+        var x = 0, y = 0;
+        for (var i = 0; i < points.length; i++) {
+            var basis = lagrangeBasis(i, t, params);
+            x += basis * points[i].x;
+            y += basis * points[i].y;
+        }
+        return {x: x, y: y};
+    }
+
+    // Draw the Lagrange polynomial curve
+    function drawLagrangeCurve(ctx, style, points, paramType) {
+        var params;
+        if (paramType === 'uniform') {
+            params = calculateUniformParams(points.length);
+        } else {
+            params = calculateNonUniformParams(points);
+        }
+        
+        ctx.lineWidth = style.curve.width;
+        ctx.strokeStyle = style.curve.color;
+        ctx.beginPath();
+        
+        // Start at the first point
+        var firstPoint = evaluateLagrangePolynomial(0, points, params);
+        ctx.moveTo(firstPoint.x, firstPoint.y);
+        
+        // Draw the curve with many segments for smoothness
+        var numSegments = 100;
+        for (var i = 1; i <= numSegments; i++) {
+            var t = i / numSegments;
+            var point = evaluateLagrangePolynomial(t, points, params);
+            ctx.lineTo(point.x, point.y);
+        }
+        
+        ctx.stroke();
+    }
+
+    // Draw the polyline connecting the points
+    function drawPolyline(ctx, style, points) {
+        ctx.lineWidth = style.polyline.width;
+        ctx.strokeStyle = style.polyline.color;
+        ctx.beginPath();
+        
+        var firstPoint = points[0];
+        ctx.moveTo(firstPoint.x, firstPoint.y);
+        
+        for (var i = 1; i < points.length; i++) {
+            var point = points[i];
+            ctx.lineTo(point.x, point.y);
+        }
+        
+        ctx.stroke();
+    }
+
+    // draw canvas
+    function drawCanvas() {
+        // Clear everything
+        context1.clearRect(0, 0, canvas1.width, canvas1.height);  // Clear canvas
+
+        // Background grids
+        drawGrid(context1, canvas1.width, canvas1.height); // Draw background grid
+
+        // Draw polyline connecting vertices
+        drawPolyline(context1, style, points);
+
+        // Draw Lagrange curve
+        drawLagrangeCurve(context1, style, points, paramType);
+
+        // Draw vertices as circles
+        drawVertices(context1, style, points);
+        
+        // Show parameter values
+        displayParameters(context1, points, paramType);
+    }
+    
+    // Display the parameter values
+    function displayParameters(ctx, points, paramType) {
+        var params;
+        if (paramType === 'uniform') {
+            params = calculateUniformParams(points.length);
+        } else {
+            params = calculateNonUniformParams(points);
+        }
+        
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "blue";
+        ctx.fillText("Parameter values:", 10, 25);
+        
+        for (var i = 0; i < params.length; i++) {
+            ctx.fillText("t" + i + " = " + params[i].toFixed(3), 10, 45 + i * 20);
+        }
+    }
+
+    // Draw a background grid
+    function drawGrid(myContext, bw, bh) {
+        var delta = 50; // grid cell size
+
+        myContext.beginPath();
+        for (var x = 0; x <= bw; x += delta) {
+            myContext.moveTo(x, 0);
+            myContext.lineTo(x, bh);
+        }
+
+        for (var y = 0; y <= bh; y += delta) {
+            myContext.moveTo(0, y);
+            myContext.lineTo(bw, y);
+        }
+
+        myContext.lineWidth = 1;
+        myContext.strokeStyle = "lightgray";
+        myContext.stroke();
+
+        myContext.strokeStyle = "black";
+        myContext.font = "12px Arial";
+        myContext.fillText("(0,0)", 2, 12);
+    }
+
+    // Draw circles around vertices to facilitate drag and drop
+    function drawVertices(ctx, style, points) {
+        for (var i = 0; i < points.length; i++) {
+            var p = points[i];
+            ctx.lineWidth = style.point.width;
+            ctx.strokeStyle = style.point.color;
+            ctx.fillStyle = style.point.fill;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, style.point.radius, style.point.arc1, style.point.arc2, true);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Label the points
+            ctx.fillStyle = "black";
+            ctx.font = "12px Arial";
+            ctx.fillText("P" + i, p.x + 15, p.y - 10);
+        }
+    }
+
+    /**
+     Methods to allow dragging points around
+     **/
+
+    // start dragging
+    function dragStart(e) {
+        e = mousePos(e);
+        var dx, dy;
+        for (var i = 0; i < points.length; i++) {
+            dx = points[i].x - e.x;
+            dy = points[i].y - e.y;
+            if ((dx * dx) + (dy * dy) < style.point.radius * style.point.radius) {
+                drag = i;
+                draggedPoint = e;
+                canvas1.style.cursor = "move";
+                return;
+            }
+        }
+    }
+
+    // dragging
+    function dragging(e) {
+        if (drag != null) {
+            e = mousePos(e);
+            points[drag].x += e.x - draggedPoint.x;
+            points[drag].y += e.y - draggedPoint.y;
+            draggedPoint = e;
+            drawCanvas();
+        }
+    }
+
+    // end dragging
+    function dragEnd(e) {
+        drag = null;
+        canvas1.style.cursor = "default";
+        drawCanvas();
+    }
+
+    // event parser
+    function mousePos(event) {
+        event = (event ? event : window.event);
+        return {
+            x: event.pageX - canvas1.offsetLeft,
+            y: event.pageY - canvas1.offsetTop
+        }
+    }
+
+    /**
+     * Start ("main method")
+     */
+
+    // Assign canvas and context variables
+    canvas1 = document.getElementById("canvas1");
+    context1 = canvas1.getContext("2d");
+
+    init();
+</script>
+</body>
+</html>

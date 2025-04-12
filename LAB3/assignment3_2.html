@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>DCS - 3.2 - Runge's Phenomenon</title>
+
+    <!--- Math.js library, for matrix manipulation, and many other things--->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
+    <style>
+        .controls {
+            margin: 20px 0;
+            font-family: Arial, sans-serif;
+        }
+        .explanation {
+            margin-top: 20px;
+            max-width: 800px;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+        .math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+        .legend {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            display: inline-block;
+        }
+        .legend-item {
+            margin: 5px;
+            display: flex;
+            align-items: center;
+        }
+        .color-box {
+            width: 15px;
+            height: 15px;
+            margin-right: 10px;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>DCS - 3.2. Runge's Phenomenon</h1>
+
+<div class="controls">
+    <label for="n-points">Number of points (n+1): </label>
+    <input type="range" id="n-points" min="2" max="20" value="5" step="1">
+    <span id="n-value">5</span> (polynomial degree: <span id="degree-value">4</span>)
+</div>
+
+<canvas id="canvas1" height="600" width="800" class="bezier" style="border:1px solid #d3d3d3;"></canvas>
+
+<div class="legend">
+    <div class="legend-item">
+        <div class="color-box" style="background-color: blue;"></div>
+        <span>Original function f(x) = 1/(1+25x²)</span>
+    </div>
+    <div class="legend-item">
+        <div class="color-box" style="background-color: red;"></div>
+        <span>Lagrange interpolation polynomial</span>
+    </div>
+    <div class="legend-item">
+        <div class="color-box" style="background-color: black; border: 1px solid black;"></div>
+        <span>Interpolation points</span>
+    </div>
+</div>
+
+<div class="explanation">
+    <h2>Explanation of Runge's Phenomenon</h2>
+    
+    <p>
+        Runge's phenomenon demonstrates that increasing the degree of a polynomial interpolation using evenly spaced points 
+        can paradoxically lead to worse approximations of certain functions. This is particularly evident near the boundaries 
+        of the interval.
+    </p>
+    
+    <h3>The Problem</h3>
+    <p>
+        We're interpolating the function f(x) = 1/(1+25x²) on the interval [-1, 1] using Lagrange polynomials 
+        with equally spaced sample points:
+    </p>
+    <ul>
+        <li>The sample points are x<sub>i</sub> = 2i/n - 1, where i ranges from 0 to n</li>
+        <li>For each point, we calculate f(x<sub>i</sub>) = 1/(1+25x<sub>i</sub>²)</li>
+        <li>We construct a Lagrange polynomial of degree n that passes through all these points</li>
+    </ul>
+    
+    <h3>Key Observations</h3>
+    <ul>
+        <li>For small values of n (few interpolation points/low degree), the polynomial approximation is poor but stable</li>
+        <li>As n increases (5-9 points), the approximation improves in the middle of the interval</li>
+        <li>However, as n continues to increase (10+ points), large oscillations appear near the boundaries of the interval</li>
+        <li>These oscillations grow in magnitude as n increases, demonstrating that higher-degree polynomials can produce worse approximations</li>
+    </ul>
+    
+    <h3>Mathematical Explanation</h3>
+    <p>
+        The Lagrange interpolation polynomial for n+1 points (x₀, y₀), (x₁, y₁), ..., (xₙ, yₙ) is given by:
+    </p>
+    <p class="math">
+        L(x) = ∑(j=0 to n) y<sub>j</sub> · L<sub>j</sub>(x)
+    </p>
+    <p>
+        where L<sub>j</sub>(x) are the Lagrange basis polynomials:
+    </p>
+    <p class="math">
+        L<sub>j</sub>(x) = ∏(i=0 to n, i≠j) (x - x<sub>i</sub>)/(x<sub>j</sub> - x<sub>i</sub>)
+    </p>
+    
+    <h3>Solutions to Runge's Phenomenon</h3>
+    <p>
+        To avoid Runge's phenomenon, alternatives include:
+    </p>
+    <ul>
+        <li>Using Chebyshev nodes (points based on the roots of Chebyshev polynomials) instead of equally spaced points</li>
+        <li>Using spline interpolation (piecewise lower-degree polynomials)</li>
+        <li>Using rational function interpolation instead of polynomial interpolation</li>
+    </ul>
+</div>
+
+<script type="text/javascript">
+    var canvas1, context1, style;
+    var nPoints = 4; // Default value of n (n+1 points total)
+    var xMin = -1, xMax = 1; // Domain of interest
+    var yMin = -1, yMax = 2; // Range of interest
+    
+    // Math domain points (real x and y values)
+    var mathPoints = [];
+    // Canvas coordinates for drawing
+    var canvasPoints = [];
+
+    // The Runge function f(x) = 1/(1+25x²)
+    function rungeFunction(x) {
+        return 1 / (1 + 25 * x * x);
+    }
+
+    // Initialize the canvas and controls
+    function init() {
+        // Set up styles
+        style = {
+            originalFunction: { width: 3, color: "blue" },
+            interpolation: { width: 3, color: "red" },
+            point: { radius: 5, width: 2, color: "black", fill: "white", arc1: 0, arc2: 2 * Math.PI }
+        };
+
+        // Set line style defaults
+        context1.lineCap = "round";
+        context1.lineJoin = "round";
+
+        // Set up slider
+        document.getElementById('n-points').addEventListener('input', function() {
+            nPoints = parseInt(this.value) - 1; // n is one less than number of points
+            document.getElementById('n-value').textContent = nPoints + 1;
+            document.getElementById('degree-value').textContent = nPoints;
+            updatePoints();
+            drawCanvas();
+        });
+
+        // Initial points setup
+        updatePoints();
+        drawCanvas();
+    }
+
+    // Generate n+1 points from the Runge function
+    function updatePoints() {
+        // Clear existing points
+        mathPoints = [];
+        canvasPoints = [];
+        
+        for (var i = 0; i <= nPoints; i++) {
+            // Math domain: x in [-1, 1]
+            var x = 2 * (i / nPoints) - 1; // xi = 2i/n - 1
+            var y = rungeFunction(x);
+            
+            mathPoints.push({ x: x, y: y });
+            
+            // Convert to canvas coordinates
+            var canvasX = mapX(x);
+            var canvasY = mapY(y);
+            
+            canvasPoints.push({ x: canvasX, y: canvasY });
+        }
+    }
+
+    // Map x from domain to canvas coordinates
+    function mapX(x) {
+        return 50 + (canvas1.width - 100) * (x - xMin) / (xMax - xMin);
+    }
+
+    // Map y from range to canvas coordinates (inverted, as canvas y increases downward)
+    function mapY(y) {
+        return 50 + (canvas1.height - 100) * (1 - (y - yMin) / (yMax - yMin));
+    }
+
+    // Draw the canvas
+    function drawCanvas() {
+        // Clear everything
+        context1.clearRect(0, 0, canvas1.width, canvas1.height);
+
+        // Background grid
+        drawGrid(context1, canvas1.width, canvas1.height);
+
+        // Draw coordinate axes
+        drawAxes(context1);
+
+        // Draw original function
+        drawOriginalFunction(context1, style);
+
+        // Draw Lagrange interpolation
+        drawLagrangeInterpolation(context1, style);
+
+        // Draw interpolation points
+        drawVertices(context1, style, canvasPoints);
+    }
+
+    // Draw a background grid
+    function drawGrid(myContext, bw, bh) {
+        var deltaX = (bw - 100) / 10; // Grid cell size for x
+        var deltaY = (bh - 100) / 10; // Grid cell size for y
+
+        myContext.beginPath();
+        
+        // Vertical grid lines
+        for (var i = 0; i <= 10; i++) {
+            var x = 50 + i * deltaX;
+            myContext.moveTo(x, 50);
+            myContext.lineTo(x, bh - 50);
+        }
+
+        // Horizontal grid lines
+        for (var i = 0; i <= 10; i++) {
+            var y = 50 + i * deltaY;
+            myContext.moveTo(50, y);
+            myContext.lineTo(bw - 50, y);
+        }
+
+        myContext.lineWidth = 0.5;
+        myContext.strokeStyle = "lightgray";
+        myContext.stroke();
+    }
+
+    // Draw coordinate axes
+    function drawAxes(ctx) {
+        ctx.beginPath();
+        
+        // x-axis
+        var yAxis = mapY(0);
+        ctx.moveTo(50, yAxis);
+        ctx.lineTo(canvas1.width - 50, yAxis);
+        
+        // y-axis
+        var xAxis = mapX(0);
+        ctx.moveTo(xAxis, 50);
+        ctx.lineTo(xAxis, canvas1.height - 50);
+        
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "black";
+        ctx.stroke();
+        
+        // Labels
+        ctx.fillStyle = "black";
+        ctx.font = "14px Arial";
+        
+        // x-axis labels
+        for (var x = -1; x <= 1; x += 0.5) {
+            var xPos = mapX(x);
+            var yPos = yAxis + 20;
+            ctx.fillText(x.toFixed(1), xPos - 10, yPos);
+        }
+        
+        // y-axis labels
+        for (var y = -0.5; y <= 1.5; y += 0.5) {
+            var xPos = xAxis - 30;
+            var yPos = mapY(y);
+            ctx.fillText(y.toFixed(1), xPos, yPos + 5);
+        }
+        
+        // Function name
+        ctx.font = "16px Arial";
+        ctx.fillText("f(x) = 1/(1+25x²)", 60, 30);
+    }
+
+    // Draw the original function
+    function drawOriginalFunction(ctx, style) {
+        ctx.beginPath();
+        
+        var numSegments = 500;
+        var firstPoint = true;
+        
+        for (var i = 0; i <= numSegments; i++) {
+            var x = xMin + (xMax - xMin) * (i / numSegments);
+            var y = rungeFunction(x);
+            
+            var canvasX = mapX(x);
+            var canvasY = mapY(y);
+            
+            if (firstPoint) {
+                ctx.moveTo(canvasX, canvasY);
+                firstPoint = false;
+            } else {
+                ctx.lineTo(canvasX, canvasY);
+            }
+        }
+        
+        ctx.lineWidth = style.originalFunction.width;
+        ctx.strokeStyle = style.originalFunction.color;
+        ctx.stroke();
+    }
+
+    // Calculate Lagrange basis polynomial value
+    function lagrangeBasis(j, x) {
+        var L = 1;
+        
+        for (var i = 0; i < mathPoints.length; i++) {
+            if (i !== j) {
+                L *= (x - mathPoints[i].x) / (mathPoints[j].x - mathPoints[i].x);
+            }
+        }
+        
+        return L;
+    }
+
+    // Evaluate the Lagrange interpolation polynomial at x
+    function evaluateLagrangePolynomial(x) {
+        var sum = 0;
+        
+        for (var j = 0; j < mathPoints.length; j++) {
+            sum += mathPoints[j].y * lagrangeBasis(j, x);
+        }
+        
+        return sum;
+    }
+
+    // Draw the Lagrange interpolation polynomial
+    function drawLagrangeInterpolation(ctx, style) {
+        ctx.beginPath();
+        
+        var numSegments = 500;
+        var firstPoint = true;
+        
+        for (var i = 0; i <= numSegments; i++) {
+            var x = xMin + (xMax - xMin) * (i / numSegments);
+            var y = evaluateLagrangePolynomial(x);
+            
+            var canvasX = mapX(x);
+            var canvasY = mapY(y);
+            
+            if (firstPoint) {
+                ctx.moveTo(canvasX, canvasY);
+                firstPoint = false;
+            } else {
+                ctx.lineTo(canvasX, canvasY);
+            }
+        }
+        
+        ctx.lineWidth = style.interpolation.width;
+        ctx.strokeStyle = style.interpolation.color;
+        ctx.stroke();
+    }
+
+    // Draw circles at the interpolation points
+    function drawVertices(ctx, style, points) {
+        for (var i = 0; i < points.length; i++) {
+            var p = points[i];
+            ctx.lineWidth = style.point.width;
+            ctx.strokeStyle = style.point.color;
+            ctx.fillStyle = style.point.fill;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, style.point.radius, style.point.arc1, style.point.arc2, true);
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+    // Assign canvas and context variables
+    canvas1 = document.getElementById("canvas1");
+    context1 = canvas1.getContext("2d");
+
+    init();
+</script>
+</body>
+</html>
