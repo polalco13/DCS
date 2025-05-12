@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DCS‑4.1–4.3 Solution</title>
+  <script src="math.min.js"></script>
+  <style>
+    canvas { border:1px solid #ccc; }
+    #controls { margin-top:10px; }
+    button { margin-right:5px; }
+  </style>
+</head>
+<body>
+  <h1>DCS 4.1–4.3: Cubic &amp; Composite Bézier Curves</h1>
+  <canvas id="c" width="800" height="600"></canvas>
+  <div id="controls">
+    <button id="newCurve">New Curve</button>
+    <button id="clear">Clear All</button>
+    <span>Click to add points; drag points to move; curves are auto‑joined with C¹ continuity.</span>
+  </div>
+
+<script>
+;(function(){
+  const canvas = document.getElementById('c'),
+        ctx    = canvas.getContext('2d'),
+        RADIUS = 8;
+
+  let curves = [],         // array of curves; each is an array of control‑points
+      current = [];        // points for the active curve
+  let dragInfo = null;     // { curveIndex, ptIndex, offsetX, offsetY }
+
+  // start a new curve
+  document.getElementById('newCurve').onclick = () => {
+    if (current.length>0) curves.push(current);
+    current = [];
+    draw();
+  };
+  document.getElementById('clear').onclick = () => {
+    curves = [];
+    current = [];
+    draw();
+  };
+
+  // add point on click (unless clicking on existing point — that’s for drag)
+  canvas.addEventListener('mousedown', e=>{
+    const m = mousePos(e);
+    // see if hit any point
+    for(let ci=0;ci<curves.length;ci++){
+      for(let pi=0;pi<curves[ci].length;pi++){
+        let p=curves[ci][pi];
+        if ((p.x-m.x)**2+(p.y-m.y)**2 < RADIUS*RADIUS){
+          dragInfo={curveIndex:ci, ptIndex:pi,
+                    offsetX:m.x-p.x, offsetY:m.y-p.y};
+          return;
+        }
+      }
+    }
+    for(let pi=0;pi<current.length;pi++){
+      let p=current[pi];
+      if ((p.x-m.x)**2+(p.y-m.y)**2 < RADIUS*RADIUS){
+        dragInfo={curveIndex:null, ptIndex:pi,
+                  offsetX:m.x-p.x, offsetY:m.y-p.y};
+        return;
+      }
+    }
+    // else add new point to current
+    current.push({x:m.x, y:m.y});
+    draw();
+  });
+  canvas.addEventListener('mousemove', e=>{
+    if (!dragInfo) return;
+    const m = mousePos(e);
+    let arr = dragInfo.curveIndex===null ? current : curves[dragInfo.curveIndex];
+    let p = arr[dragInfo.ptIndex];
+    p.x = m.x - dragInfo.offsetX;
+    p.y = m.y - dragInfo.offsetY;
+    enforceC1(); draw();
+  });
+  canvas.addEventListener('mouseup', ()=>dragInfo=null);
+  canvas.addEventListener('mouseout', ()=>dragInfo=null);
+
+  // enforce C¹ continuity across joined segments in each curve
+  function enforceC1(){
+    curves.forEach(cp=>{
+      // if cp has n points, segments = floor((n-1)/3)
+      for(let s=0; s<Math.floor((cp.length-1)/3)-0; s++){
+        let i = s*3;
+        // points:  i (anchor), i+1 (ctrl1), i+2 (ctrl2), i+3 (next anchor)
+        // for next segment, ctrl1' should be reflection of ctrl2 across anchor:
+        if (cp[i+4]){
+          let anchor = cp[i+3],
+              prevCtrl2 = cp[i+2],
+              newCtrl1 = cp[i+4];
+          // reflect:
+          newCtrl1.x = 2*anchor.x - prevCtrl2.x;
+          newCtrl1.y = 2*anchor.y - prevCtrl2.y;
+        }
+      }
+    });
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // draw grid
+    ctx.strokeStyle='lightgray'; ctx.lineWidth=1;
+    for(let x=0;x<canvas.width;x+=50){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
+    }
+    for(let y=0;y<canvas.height;y+=50){
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
+    }
+    // draw all curves
+    function drawCurve(pts){
+      if (pts.length<4) return;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x,pts[0].y);
+      // draw each cubic segment:
+      for(let i=0; i+3<pts.length; i+=3){
+        let p0=pts[i], p1=pts[i+1], p2=pts[i+2], p3=pts[i+3];
+        ctx.bezierCurveTo(p1.x,p1.y, p2.x,p2.y, p3.x,p3.y);
+      }
+      ctx.lineWidth=3; ctx.strokeStyle='#333'; ctx.stroke();
+      // draw poly‑lines
+      ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+      for(let p of pts){ ctx.lineTo(p.x,p.y); }
+      ctx.lineWidth=1; ctx.strokeStyle='#c00'; ctx.stroke();
+    }
+    curves.forEach(drawCurve);
+    drawCurve(current);
+
+    // draw points
+    function drawPoints(arr, col){
+      arr.forEach(p=>{
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,RADIUS,0,2*Math.PI);
+        ctx.fillStyle=col; ctx.fill();
+        ctx.strokeStyle='#900'; ctx.stroke();
+      });
+    }
+    drawPoints(current,'rgba(200,200,250,0.6)');
+    curves.forEach(c=>drawPoints(c,'rgba(200,250,200,0.6)'));
+  }
+
+  function mousePos(e){
+    const rect=canvas.getBoundingClientRect();
+    return {x:e.clientX-rect.left, y:e.clientY-rect.top};
+  }
+
+  // initial draw
+  draw();
+})();
+</script>
+</body>
+</html>

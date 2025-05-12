@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>DCS - 4.2</title>
+
+    <!--- Math.js library, for matrix manipulation, and many other things--->
+	<script src="math.min.js"></script>
+</head>
+
+<body>
+
+<h1>DCS - 4.2. Bézier curves - font design</h1>
+
+<canvas id="canvas1" height="700" width="800" class="bezier"  style="border:1px solid #d3d3d3;"></canvas>
+<br>
+Load control points: <input type="file" id="file-input"/>
+<br>
+Save control points: <button type="button" onclick="doSave()">Save</button>
+<br>
+<button type="button" onclick="addCurve()">Add New Curve</button>
+<button type="button" onclick="addPoint()">Add Control Point to Current Curve</button>
+<button type="button" onclick="removePoint()">Remove Last Control Point</button>
+<button type="button" onclick="clearAll()">Clear All</button>
+
+<script type="text/javascript">
+
+    /*
+    * Part of this code is based on:
+        * http://blogs.sitepoint.com/html5-canvas-draw-quadratic-curves/
+        * http://blogs.sitepoint.com/html5-canvas-draw-bezier-curves/
+    */
+
+    var canvas1, context1, allCurves, currentCurveIndex, myTransformation, style, drag = null, draggedPoint;
+
+	var letter = 'P'; // Changed from 'R' to 'P'
+	
+    // Initialize with a set of curves for the letter P - shifted to the right by 50 pixels
+    allCurves = [
+        // First curve for the vertical stem of P
+        [{x:164,y:71},{x:164,y:200},{x:164,y:400},{x:164,y:600}],
+        
+        // Second curve for the top arc of P
+        [{x:164,y:71},{x:250,y:50},{x:350,y:50},{x:430,y:100}],
+        
+        // Third curve for the right side of the curved part
+        [{x:430,y:100},{x:470,y:150},{x:470,y:250},{x:430,y:300}],
+        
+        // Fourth curve for the bottom part connecting to the stem
+        [{x:430,y:300},{x:350,y:350},{x:250,y:350},{x:164,y:300}]
+    ];
+    
+    currentCurveIndex = 0;
+	
+	
+    function init() {
+
+        myTransformation = function(p){return p}; //Identity transform
+
+        // default styles
+        style = {
+            curve:	{ width: 6, color: "#333" },
+            bezier: { width: 4, color: "#000" },
+            control: { width: 1, color: "#C00" },
+            point: { radius: 10, width: 2, color: "#900", fill: "rgba(200,200,200,0.5)", arc1: 0, arc2: 2 * Math.PI },
+            selectedCurve: { width: 2, color: "#00F", dashPattern: [5, 5] }
+        }
+
+        // line style defaults
+        context1.lineCap = "round";
+        context1.lineJoin = "round";
+
+        // event handlers (only canvas1)
+        canvas1.onmousedown = dragStart;
+        canvas1.onmousemove = dragging;
+        canvas1.onmouseup = canvas1.onmouseout = dragEnd;
+
+        drawCanvas();
+    }
+
+    // Add a new curve
+    function addCurve() {
+        allCurves.push([{x:200,y:200},{x:250,y:250},{x:300,y:300},{x:350,y:350}]);
+        currentCurveIndex = allCurves.length - 1;
+        drawCanvas();
+    }
+
+    // Add a new control point to the current curve
+    function addPoint() {
+        if (allCurves[currentCurveIndex].length > 0) {
+            var lastPoint = allCurves[currentCurveIndex][allCurves[currentCurveIndex].length - 1];
+            // Add a new point offset from the last one
+            allCurves[currentCurveIndex].push({x: lastPoint.x + 50, y: lastPoint.y + 50});
+            drawCanvas();
+        }
+    }
+
+    // Remove the last control point from the current curve
+    function removePoint() {
+        if (allCurves[currentCurveIndex].length > 0) {
+            allCurves[currentCurveIndex].pop();
+            drawCanvas();
+        }
+    }
+
+    // Clear all curves
+    function clearAll() {
+        allCurves = [[]];
+        currentCurveIndex = 0;
+        drawCanvas();
+    }
+
+
+    /**
+     Basic drawing methods
+     **/
+
+
+    // draw canvas
+    function drawCanvas() {
+        // Clear everything
+        context1.clearRect(0, 0, canvas1.width, canvas1.height);  // Clear canvas
+
+        // Background grids
+        drawGrid(context1,canvas1.width, canvas1.height); // Draw background grid
+		
+		// Background letter
+		context1.fillStyle = "lightgray";
+        context1.font = "800px Times";
+        context1.fillText(letter, 50, 600);
+
+        // Draw all curves
+        for (var i = 0; i < allCurves.length; i++) {
+            var points = allCurves[i];
+            
+            // Highlight the current curve
+            if (i === currentCurveIndex) {
+                // Draw control polygons for the selected curve
+                drawControlPolygon(context1, style, points);
+            }
+            
+            // Draw the Bézier curve segments
+            drawBezierCurve(context1, style, points);
+            
+            // Draw vertices as circles
+            drawVertices(context1, style, points);
+        }
+    }
+
+
+    // Draw a background grid
+    function drawGrid(myContext, bw, bh) {
+        var delta = 50; // grid cell size
+
+        for (var x = 0; x <= bw; x += delta) {
+            myContext.moveTo(x, 0);
+            myContext.lineTo(x, bh);
+        }
+
+        for (var y = 0; y <= bh; y += delta) {
+            myContext.moveTo(0, y);
+            myContext.lineTo(bw, y);
+        }
+
+        myContext.lineWidth = 1;
+        myContext.strokeStyle = "lightblue";
+        myContext.stroke();
+    }
+
+    // Draws a polygonal curve connecting the control points (control polygon)
+    function drawControlPolygon(ctx, style, points) {
+        if (points.length < 2) return;
+        
+        ctx.lineWidth = style.control.width;
+        ctx.strokeStyle = style.control.color;
+        ctx.setLineDash([5, 5]); // Dashed line for control polygon
+        ctx.beginPath();
+        
+        ctx.moveTo(points[0].x, points[0].y);
+        for (var i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y);
+        }
+        
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset to solid line
+    }
+
+    // Draw a composite Bézier curve with C¹-continuity
+    function drawBezierCurve(ctx, style, points) {
+        if (points.length < 4) return; // Need at least 4 points for a cubic Bézier
+        
+        ctx.lineWidth = style.bezier.width;
+        ctx.strokeStyle = style.bezier.color;
+        ctx.beginPath();
+        
+        // Start at the first point
+        ctx.moveTo(points[0].x, points[0].y);
+        
+        // If we have exactly 4 points, draw a single cubic Bézier
+        if (points.length === 4) {
+            ctx.bezierCurveTo(
+                points[1].x, points[1].y, 
+                points[2].x, points[2].y, 
+                points[3].x, points[3].y
+            );
+        } 
+        // If we have more than 4 points, draw a composite Bézier curve
+        else if (points.length > 4) {
+            // Number of cubic Bézier segments
+            var numSegments = Math.floor((points.length - 1) / 3);
+            
+            for (var i = 0; i < numSegments; i++) {
+                var startIdx = i * 3;
+                ctx.bezierCurveTo(
+                    points[startIdx + 1].x, points[startIdx + 1].y,
+                    points[startIdx + 2].x, points[startIdx + 2].y,
+                    points[startIdx + 3].x, points[startIdx + 3].y
+                );
+            }
+        }
+        
+        ctx.stroke();
+    }
+
+    // Draw circles around vertices to facilitate drag and drop
+    function drawVertices(ctx, style, points) {
+        for (var i = 0; i < points.length; i++) {
+            var p = points[i];
+            ctx.lineWidth = style.point.width;
+            ctx.strokeStyle = style.point.color;
+            ctx.fillStyle = style.point.fill;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, style.point.radius, style.point.arc1, style.point.arc2, true);
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+    /**
+     Methods to allow dragging points around
+     **/
+
+    // start dragging
+    function dragStart(e) {
+        e = mousePos(e);
+        var dx, dy;
+        
+        // Check each curve for points that can be dragged
+        for (var curveIdx = 0; curveIdx < allCurves.length; curveIdx++) {
+            var points = allCurves[curveIdx];
+            
+            for (var i = 0; i < points.length; i++) {
+                dx = points[i].x - e.x;
+                dy = points[i].y - e.y;
+                if ((dx * dx) + (dy * dy) < style.point.radius * style.point.radius) {
+                    drag = {curveIdx: curveIdx, pointIdx: i};
+                    currentCurveIndex = curveIdx; // Set current curve to the one being dragged
+                    draggedPoint = e;
+                    canvas1.style.cursor = "move";
+                    drawCanvas();
+                    return;
+                }
+            }
+        }
+    }
+
+    // dragging
+    function dragging(e) {
+        if (drag !== null) {
+            e = mousePos(e);
+            var points = allCurves[drag.curveIdx];
+            points[drag.pointIdx].x += e.x - draggedPoint.x;
+            points[drag.pointIdx].y += e.y - draggedPoint.y;
+            draggedPoint = e;
+            drawCanvas();
+        }
+    }
+
+    // end dragging
+    function dragEnd(e) {
+        drag = null;
+        canvas1.style.cursor = "default";
+        drawCanvas();
+    }
+
+    // event parser
+    function mousePos(event) {
+        event = (event ? event : window.event);
+        return {
+            x: event.pageX - canvas1.offsetLeft,
+            y: event.pageY - canvas1.offsetTop
+        }
+    }
+
+    /**
+     * Start ("main method")
+     */
+
+    // Assign canvas and context variables
+    canvas1 = document.getElementById("canvas1");
+    context1 = canvas1.getContext("2d");
+
+    init();
+
+    /**
+     * Auxiliary functions for file handling
+     */
+	function saveToFile(text, name, type) {
+        var a = document.createElement("a");
+        var file = new Blob([text], {type: type});
+        a.href = URL.createObjectURL(file);
+        a.download = name;
+        a.click();
+    }
+
+
+	function doSave() {
+		//Save control points as JSON string to a file
+		saveToFile(JSON.stringify(allCurves), 'control_points.txt', 'text/plain');
+    }
+	
+	function readSingleFile(e) {
+	  var file = e.target.files[0];
+	  if (!file) {
+		return;
+	  }
+	  
+	  var reader = new FileReader();
+	  reader.onload = function(e) {
+		var contents = e.target.result;
+		updateContents(contents);
+	  };
+	  reader.readAsText(file);
+	}
+
+	function updateContents(contents) {
+	  // Replace control points by object read from file
+	  allCurves = JSON.parse(contents);
+	  currentCurveIndex = 0;
+	  // Redraw
+	  drawCanvas();
+	}
+
+	document.getElementById('file-input')
+	  .addEventListener('change', readSingleFile, false);
+
+
+</script>
+</body>
+</html>
