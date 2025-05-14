@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bézier Curve Creation Process</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      display: block;
+      margin: 20px auto;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .controls {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .controls button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .controls button:hover {
+      background-color: #45a049;
+    }
+    .controls button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .controls input[type="range"] {
+      width: 300px;
+      margin: 0 10px;
+    }
+    .controls label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    .info {
+      margin: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    .info h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    .info p {
+      line-height: 1.5;
+    }
+    .point-info {
+      margin-top: 10px;
+      text-align: center;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bézier Curve Creation Process</h1>
+  
+  <div class="controls">
+    <button id="addPointBtn">Add Control Point</button>
+    <button id="removePointBtn">Remove Last Point</button>
+    <button id="clearBtn">Clear All</button>
+    <button id="animateBtn">Animate Construction</button>
+    <button id="stopAnimateBtn" disabled>Stop Animation</button>
+  </div>
+  
+  <div class="controls">
+    <label for="animationSpeed">Animation Speed:</label>
+    <input type="range" id="animationSpeed" min="1" max="100" value="50">
+    <span id="speedValue">50%</span>
+  </div>
+  
+  <div class="controls">
+    <label for="t-value">Parameter t:</label>
+    <input type="range" id="t-value" min="0" max="100" value="0" step="1">
+    <span id="t-display">0.00</span>
+  </div>
+  
+  <canvas id="bezierCanvas" width="800" height="500"></canvas>
+  
+  <div class="point-info" id="pointInfo">Points: 0</div>
+  
+  <div class="info">
+    <h2>About Bézier Curves</h2>
+    <p>A Bézier curve is a parametric curve that uses the Bernstein polynomials as its basis. The curve is defined by control points that form a control polygon.</p>
+    <p>For a cubic Bézier curve with control points P₀, P₁, P₂, and P₃, the formula is:</p>
+    <p><strong>B(t) = (1-t)³P₀ + 3(1-t)²tP₁ + 3(1-t)t²P₂ + t³P₃</strong>, where t ∈ [0,1]</p>
+    <p>The curve always passes through the first and last control points, while the other control points act as "magnets" that pull the curve in their direction.</p>
+    <p>This visualization allows you to see how intermediate points are calculated during the construction of the curve using the de Casteljau algorithm.</p>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('bezierCanvas');
+    const ctx = canvas.getContext('2d');
+    const addPointBtn = document.getElementById('addPointBtn');
+    const removePointBtn = document.getElementById('removePointBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const animateBtn = document.getElementById('animateBtn');
+    const stopAnimateBtn = document.getElementById('stopAnimateBtn');
+    const tSlider = document.getElementById('t-value');
+    const tDisplay = document.getElementById('t-display');
+    const pointInfo = document.getElementById('pointInfo');
+    const speedSlider = document.getElementById('animationSpeed');
+    const speedValue = document.getElementById('speedValue');
+    
+    const pointRadius = 10;
+    let points = [];
+    let draggingPoint = null;
+    let animationId = null;
+    let animationT = 0;
+    let animationSpeed = 0.01;
+    
+    // Color definitions
+    const colors = {
+      originalPoints: '#1a73e8',
+      firstLevelPoints: '#f44336',
+      secondLevelPoints: '#9c27b0',
+      thirdLevelPoints: '#4caf50',
+      finalPoint: '#ff9800',
+      curve: '#000000',
+      grid: '#e0e0e0',
+      controlLines: '#bdbdbd'
+    };
+    
+    // Initialize canvas
+    function init() {
+      drawGrid();
+      
+      // Add mouse event listeners
+      canvas.addEventListener('mousedown', onMouseDown);
+      canvas.addEventListener('mousemove', onMouseMove);
+      canvas.addEventListener('mouseup', onMouseUp);
+      
+      // Add button listeners
+      addPointBtn.addEventListener('click', addRandomPoint);
+      removePointBtn.addEventListener('click', removeLastPoint);
+      clearBtn.addEventListener('click', clearAllPoints);
+      animateBtn.addEventListener('click', startAnimation);
+      stopAnimateBtn.addEventListener('click', stopAnimation);
+      
+      // Add slider listeners
+      tSlider.addEventListener('input', updateT);
+      speedSlider.addEventListener('input', updateSpeed);
+      
+      // Initial draw
+      drawCanvas();
+    }
+    
+    // Draw grid
+    function drawGrid() {
+      ctx.strokeStyle = colors.grid;
+      ctx.lineWidth = 0.5;
+      
+      // Draw vertical lines
+      for (let x = 0; x <= canvas.width; x += 50) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      
+      // Draw horizontal lines
+      for (let y = 0; y <= canvas.height; y += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+    
+    // Draw canvas
+    function drawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      
+      // Draw control polygon
+      if (points.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i].x, points[i].y);
+        }
+        ctx.strokeStyle = colors.controlLines;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      
+      // Draw Bézier curve if we have enough points
+      if (points.length >= 2) {
+        drawBezierCurve();
+      }
+      
+      // Draw construction at current t value
+      const t = tSlider.value / 100;
+      if (points.length >= 2) {
+        drawDeCasteljauConstruction(t);
+      }
+      
+      // Draw points
+      drawPoints();
+      
+      // Update point info
+      pointInfo.textContent = `Points: ${points.length}`;
+    }
+    
+    // Draw all control points
+    function drawPoints() {
+      points.forEach((point, index) => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, pointRadius, 0, Math.PI * 2);
+        ctx.fillStyle = colors.originalPoints;
+        ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw point index
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(index, point.x, point.y);
+      });
+    }
+    
+    // Draw the Bézier curve
+    function drawBezierCurve() {
+      const steps = 100;
+      ctx.beginPath();
+      
+      // Start with the first point
+      let firstPoint = calculateBezierPoint(0);
+      ctx.moveTo(firstPoint.x, firstPoint.y);
+      
+      // Draw curve segments
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const point = calculateBezierPoint(t);
+        ctx.lineTo(point.x, point.y);
+      }
+      
+      ctx.strokeStyle = colors.curve;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    
+    // Calculate point on Bézier curve at parameter t
+    function calculateBezierPoint(t) {
+      // If we have only 1 point, return it
+      if (points.length === 1) {
+        return points[0];
+      }
+      
+      // Apply de Casteljau's algorithm recursively
+      let tempPoints = [...points];
+      
+      // Recursively calculate intermediate points
+      const iterations = points.length - 1;
+      for (let i = 0; i < iterations; i++) {
+        const newPoints = [];
+        for (let j = 0; j < tempPoints.length - 1; j++) {
+          const p1 = tempPoints[j];
+          const p2 = tempPoints[j + 1];
+          newPoints.push({
+            x: (1 - t) * p1.x + t * p2.x,
+            y: (1 - t) * p1.y + t * p2.y
+          });
+        }
+        tempPoints = newPoints;
+      }
+      
+      // Return the final point
+      return tempPoints[0];
+    }
+    
+    // Draw the de Casteljau construction
+    function drawDeCasteljauConstruction(t) {
+      if (points.length < 2) return;
+      
+      // Make a copy of points to work with
+      let tempPoints = [...points];
+      let allLevels = [tempPoints];
+      
+      // Calculate all levels of intermediate points
+      while (tempPoints.length > 1) {
+        const newPoints = [];
+        for (let i = 0; i < tempPoints.length - 1; i++) {
+          const p1 = tempPoints[i];
+          const p2 = tempPoints[i + 1];
+          newPoints.push({
+            x: (1 - t) * p1.x + t * p2.x,
+            y: (1 - t) * p1.y + t * p2.y
+          });
+        }
+        tempPoints = newPoints;
+        allLevels.push(tempPoints);
+      }
+      
+      // Draw all levels of intermediate points and lines
+      const levelColors = [
+        colors.firstLevelPoints,  // First level (red)
+        colors.secondLevelPoints, // Second level (purple)
+        colors.thirdLevelPoints   // Third level (green)
+      ];
+      
+      // Draw lines between intermediate points
+      for (let level = 0; level < allLevels.length - 1; level++) {
+        const currentLevel = allLevels[level];
+        const color = levelColors[level] || colors.finalPoint;
+        
+        // Draw lines connecting points at this level
+        ctx.beginPath();
+        for (let i = 0; i < currentLevel.length - 1; i++) {
+          const p1 = currentLevel[i];
+          const p2 = currentLevel[i + 1];
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+        }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      
+      // Draw intermediate points
+      for (let level = 1; level < allLevels.length; level++) {
+        const currentLevel = allLevels[level];
+        const color = levelColors[level - 1] || colors.finalPoint;
+        
+        // Draw points at this level
+        for (let i = 0; i < currentLevel.length; i++) {
+          const point = currentLevel[i];
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, pointRadius - 2, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+    
+    // Add random point
+    function addRandomPoint() {
+      const margin = 50;
+      const x = margin + Math.random() * (canvas.width - 2 * margin);
+      const y = margin + Math.random() * (canvas.height - 2 * margin);
+      points.push({ x, y });
+      drawCanvas();
+    }
+    
+    // Remove last point
+    function removeLastPoint() {
+      if (points.length > 0) {
+        points.pop();
+        drawCanvas();
+      }
+    }
+    
+    // Clear all points
+    function clearAllPoints() {
+      points = [];
+      drawCanvas();
+    }
+    
+    // Start animation
+    function startAnimation() {
+      if (animationId) return;
+      
+      animationBtn.disabled = true;
+      stopAnimateBtn.disabled = false;
+      
+      animationT = 0;
+      animationId = requestAnimationFrame(animate);
+    }
+    
+    // Stop animation
+    function stopAnimation() {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+        animationBtn.disabled = false;
+        stopAnimateBtn.disabled = true;
+      }
+    }
+    
+    // Animation loop
+    function animate() {
+      animationT += animationSpeed;
+      if (animationT > 1) {
+        animationT = 0;
+      }
+      
+      tSlider.value = animationT * 100;
+      tDisplay.textContent = animationT.toFixed(2);
+      drawCanvas();
+      
+      animationId = requestAnimationFrame(animate);
+    }
+    
+    // Update t value from slider
+    function updateT() {
+      const t = tSlider.value / 100;
+      tDisplay.textContent = t.toFixed(2);
+      drawCanvas();
+    }
+    
+    // Update animation speed
+    function updateSpeed() {
+      animationSpeed = speedSlider.value / 5000;
+      speedValue.textContent = `${speedSlider.value}%`;
+    }
+    
+    // Mouse event handlers
+    function onMouseDown(e) {
+      const mousePos = getMousePosition(e);
+      
+      // Check if clicked on a point
+      for (let i = 0; i < points.length; i++) {
+        const point = points[i];
+        const distance = Math.sqrt(
+          Math.pow(mousePos.x - point.x, 2) + 
+          Math.pow(mousePos.y - point.y, 2)
+        );
+        
+        if (distance <= pointRadius) {
+          draggingPoint = i;
+          return;
+        }
+      }
+      
+      // If not dragging, add a new point
+      points.push({ x: mousePos.x, y: mousePos.y });
+      drawCanvas();
+    }
+    
+    function onMouseMove(e) {
+      if (draggingPoint !== null) {
+        const mousePos = getMousePosition(e);
+        points[draggingPoint] = { x: mousePos.x, y: mousePos.y };
+        drawCanvas();
+      }
+    }
+    
+    function onMouseUp() {
+      draggingPoint = null;
+    }
+    
+    // Get mouse position relative to canvas
+    function getMousePosition(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+    
+    // Initialize the application
+    init();
+  </script>
+</body>
+</html>
