@@ -2,32 +2,27 @@
 
 Este repositorio contiene ejercicios y proyectos para la asignatura **DCS** (Data and Computer Science). A continuación se listan los **cinco laboratorios** y se deja espacio para anotar la calificación de cada uno:
 
-## Lab 1: Transformaciones Afines Básicas
-- **Descripción breve**: Traducción, rotación, escalado y reflexión sobre el eje X.
+## Lab 1
 - **Calificación**: 10
 
 ---
 
-## Lab 2: Transformaciones Compuestas
-- **Descripción breve**: Aplicar secuencias de transformaciones (p.ej., traducción + rotación) y reflexión en líneas arbitrarias.
+## Lab 2
+- **Calificación**: 8
+
+---
+
+## Lab 3
+- **Calificación**: 10
+
+---
+
+## Lab 4
 - **Calificación**: _[pendiente]_
 
 ---
 
-## Lab 3: Proyecciones
-- **Descripción breve**: Proyecciones paralelas y centrales, y su efecto en el plano.
-- **Calificación**: _[pendiente]_
-
----
-
-## Lab 4: Análisis de Propiedades Afines
-- **Descripción breve**: Preservación de combinaciones afines, verificación de puntos medios y análisis de proyecciones.
-- **Calificación**: _[pendiente]_
-
----
-
-## Lab 5: Tema Específico (por definir)
-- **Descripción breve**: _[breve descripción del último laboratorio]_
+## Lab 5
 - **Calificación**: _[pendiente]_
 
 ---
